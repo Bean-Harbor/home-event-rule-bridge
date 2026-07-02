@@ -16,11 +16,11 @@ from .writer import AutomationWriter
 def _load_snapshot(args, settings: Settings) -> EntitySnapshot:
     if getattr(args, "states", None):
         return EntitySnapshot.from_file(Path(args.states))
+    if settings.ha_url and settings.ha_token:
+        return HomeAssistantClient(settings.ha_url, settings.ha_token).states()
     default_fixture = Path("fixtures/ha_states.json")
     if default_fixture.exists():
         return EntitySnapshot.from_file(default_fixture)
-    if settings.ha_url and settings.ha_token:
-        return HomeAssistantClient(settings.ha_url, settings.ha_token).states()
     return EntitySnapshot.empty()
 
 
@@ -109,4 +109,3 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-
