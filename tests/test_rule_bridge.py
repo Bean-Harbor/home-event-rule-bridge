@@ -79,6 +79,22 @@ class RuleBridgeTests(unittest.TestCase):
         confirmed = bridge.handle_text("chat-1", f"CONFIRM {first.draft_id}", snapshot)
         self.assertIn("Dry-run mode", confirmed.text)
 
+    def test_simple_confirm_uses_latest_draft_for_same_chat(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        first = bridge.handle_text("chat-1", "If driveway motion happens when nobody is home, message me.", snapshot)
+        self.assertIsNotNone(first.draft_id)
+        confirmed = bridge.handle_text("chat-1", "Confirmed", snapshot)
+        self.assertIn(f"Confirmed {first.draft_id}", confirmed.text)
+        self.assertIn("Dry-run mode", confirmed.text)
+
+    def test_simple_confirm_does_not_cross_chat_scope(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        bridge.handle_text("chat-1", "If driveway motion happens when nobody is home, message me.", snapshot)
+        confirmed = bridge.handle_text("chat-2", "yes", snapshot)
+        self.assertIn("I could not find an active draft", confirmed.text)
+
     def test_writer_only_writes_package_file(self) -> None:
         snapshot = fixture_snapshot()
         draft = RuleBasedParser().parse("If a package is delivered on the porch, message me.", snapshot)
@@ -94,4 +110,3 @@ class RuleBridgeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

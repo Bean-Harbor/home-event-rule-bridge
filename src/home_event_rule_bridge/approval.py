@@ -47,6 +47,20 @@ class ApprovalStore:
             self._drafts.pop(draft_id, None)
         return pending
 
+    def latest_for_chat(self, chat_id: str) -> PendingDraft | None:
+        active = [draft for draft in self._drafts.values() if draft.chat_id == chat_id]
+        active.sort(key=lambda draft: draft.created_at, reverse=True)
+        for pending in active:
+            if pending.expires_at >= time.time():
+                return pending
+            self._drafts.pop(pending.draft.id, None)
+        return None
+
+    def pop_latest_for_chat(self, chat_id: str) -> PendingDraft | None:
+        pending = self.latest_for_chat(chat_id)
+        if pending:
+            self._drafts.pop(pending.draft.id, None)
+        return pending
+
     def cancel(self, draft_id: str, chat_id: str) -> bool:
         return self.pop(draft_id, chat_id) is not None
-

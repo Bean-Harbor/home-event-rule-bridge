@@ -67,10 +67,8 @@ class DiscordBot:
                 return
 
             approval_scope = f"discord:{channel_id}:{message.author.id}"
-            async with message.channel.typing():
-                reply = await asyncio.to_thread(handler, approval_scope, text)
+            reply = await asyncio.to_thread(handler, approval_scope, text)
             for chunk in _message_chunks(reply):
                 await message.channel.send(chunk)
 
         client.run(self.token)
-

@@ -17,6 +17,8 @@ class BridgeReply:
 
 
 class RuleBridge:
+    SIMPLE_CONFIRMATIONS = {"CONFIRM", "CONFIRMED", "YES", "Y", "OK", "APPROVE", "APPROVED"}
+
     def __init__(
         self,
         parser: Parser,
@@ -32,6 +34,8 @@ class RuleBridge:
         upper = stripped.upper()
         if upper.startswith("CONFIRM "):
             return self._confirm(chat_id, stripped.split(maxsplit=1)[1].strip())
+        if upper in self.SIMPLE_CONFIRMATIONS:
+            return self._confirm_latest(chat_id)
         if upper.startswith("CANCEL "):
             draft_id = stripped.split(maxsplit=1)[1].strip()
             if self.approvals.cancel(draft_id, chat_id):
@@ -75,3 +79,9 @@ class RuleBridge:
         result = self.writer.commit(pending.draft, pending.yaml_preview)
         return BridgeReply(f"Confirmed {draft_id}.\n{result}\n\nYAML:\n```yaml\n{pending.yaml_preview}```")
 
+    def _confirm_latest(self, chat_id: str) -> BridgeReply:
+        pending = self.approvals.pop_latest_for_chat(chat_id)
+        if not pending:
+            return BridgeReply("I could not find an active draft to confirm.")
+        result = self.writer.commit(pending.draft, pending.yaml_preview)
+        return BridgeReply(f"Confirmed {pending.draft.id}.\n{result}\n\nYAML:\n```yaml\n{pending.yaml_preview}```")
