@@ -76,8 +76,27 @@ class RuleBridgeTests(unittest.TestCase):
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
         first = bridge.handle_text("chat-1", "If driveway motion happens when nobody is home, message me.", snapshot)
         self.assertIsNotNone(first.draft_id)
+        self.assertNotIn("YAML preview", first.text)
         confirmed = bridge.handle_text("chat-1", f"CONFIRM {first.draft_id}", snapshot)
         self.assertIn("Dry-run mode", confirmed.text)
+        self.assertIn("Rule: rule_", confirmed.text)
+
+    def test_help_and_status_are_human_readable(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        help_reply = bridge.handle_text("chat-1", "help", snapshot)
+        self.assertIn("Home Event Rule Bridge", help_reply.text)
+        self.assertIn("dry-run mode", help_reply.text)
+        status_reply = bridge.handle_text("chat-1", "status", snapshot)
+        self.assertIn("HA snapshot:", status_reply.text)
+
+    def test_show_yaml_is_explicit(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        first = bridge.handle_text("chat-1", "If driveway motion happens when nobody is home, message me.", snapshot)
+        yaml_reply = bridge.handle_text("chat-1", "show yaml", snapshot)
+        self.assertIn(f"YAML preview for {first.draft_id}", yaml_reply.text)
+        self.assertIn("binary_sensor.driveway_motion", yaml_reply.text)
 
     def test_simple_confirm_uses_latest_draft_for_same_chat(self) -> None:
         snapshot = fixture_snapshot()
@@ -95,17 +114,57 @@ class RuleBridgeTests(unittest.TestCase):
         confirmed = bridge.handle_text("chat-2", "yes", snapshot)
         self.assertIn("I could not find an active draft", confirmed.text)
 
+    def test_missing_entity_goes_to_clarification(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        reply = bridge.handle_text("chat-1", "Let me know if a mystery device goes offline", snapshot)
+        self.assertIn("I need a little more detail", reply.text)
+        self.assertIn("Which entity should I use?", reply.text)
+
+    def test_clarification_number_updates_latest_draft(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        bridge.handle_text("chat-1", "Let me know if a mystery device goes offline", snapshot)
+        updated = bridge.handle_text("chat-1", "1", snapshot)
+        self.assertIn("Draft ready", updated.text)
+        self.assertIn("Confidence:", updated.text)
+
+    def test_list_and_show_confirmed_rules(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        first = bridge.handle_text("chat-1", "If driveway motion happens when nobody is home, message me.", snapshot)
+        confirmed = bridge.handle_text("chat-1", f"CONFIRM {first.draft_id}", snapshot)
+        rule_id = [part for part in confirmed.text.split() if part.startswith("rule_")][0]
+        listed = bridge.handle_text("chat-1", "list rules", snapshot)
+        self.assertIn(rule_id, listed.text)
+        shown = bridge.handle_text("chat-1", f"show rule {rule_id}", snapshot)
+        self.assertIn("Status: active", shown.text)
+
     def test_writer_only_writes_package_file(self) -> None:
         snapshot = fixture_snapshot()
         draft = RuleBasedParser().parse("If a package is delivered on the porch, message me.", snapshot)
         yaml_text = compile_package_yaml(draft).removeprefix("automation:\n")
         with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "configuration.yaml").write_text(
+                "homeassistant:\n  packages: !include_dir_named packages\n",
+                encoding="utf-8",
+            )
             writer = AutomationWriter(True, Path(temp), None)
             result = writer.commit(draft, yaml_text)
             target = Path(temp) / "packages" / "home_event_rule_bridge.yaml"
             self.assertTrue(target.exists())
             self.assertIn("home_event_rule_bridge.yaml", result)
             self.assertIn("automation:", target.read_text(encoding="utf-8"))
+
+    def test_writer_refuses_when_packages_are_not_enabled(self) -> None:
+        snapshot = fixture_snapshot()
+        draft = RuleBasedParser().parse("If a package is delivered on the porch, message me.", snapshot)
+        yaml_text = compile_package_yaml(draft).removeprefix("automation:\n")
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, "configuration.yaml").write_text("default_config:\n", encoding="utf-8")
+            writer = AutomationWriter(True, Path(temp), None)
+            with self.assertRaises(RuntimeError):
+                writer.commit(draft, yaml_text)
 
 
 if __name__ == "__main__":

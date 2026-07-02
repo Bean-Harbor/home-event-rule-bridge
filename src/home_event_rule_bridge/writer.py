@@ -23,6 +23,7 @@ class AutomationWriter:
         if self.ha_config_dir is None:
             raise RuntimeError("HA_CONFIG_DIR is required when ALLOW_WRITE_AUTOMATIONS=true")
         config_root = self.ha_config_dir.resolve()
+        self._ensure_packages_enabled(config_root)
         package_dir = (config_root / "packages").resolve()
         target = (package_dir / "home_event_rule_bridge.yaml").resolve()
         if config_root not in target.parents:
@@ -38,3 +39,13 @@ class AutomationWriter:
             self.ha_client.call_service("automation", "reload", {})
         return f"Wrote {target} and requested automation.reload."
 
+    def _ensure_packages_enabled(self, config_root: Path) -> None:
+        configuration = config_root / "configuration.yaml"
+        if not configuration.exists():
+            raise RuntimeError("configuration.yaml was not found under HA_CONFIG_DIR; refusing to write.")
+        text = configuration.read_text(encoding="utf-8", errors="ignore")
+        if "packages:" not in text:
+            raise RuntimeError(
+                "Home Assistant packages do not appear to be enabled. "
+                "Add a homeassistant: packages include before enabling write mode."
+            )

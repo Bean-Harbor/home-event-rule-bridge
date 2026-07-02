@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from .audit import AuditLogger
 from .approval import ApprovalStore
 from .bridge import RuleBridge
 from .config import Settings
@@ -33,6 +34,7 @@ def _build_bridge(settings: Settings, ha_client: HomeAssistantClient | None) -> 
             ha_config_dir=settings.ha_config_dir,
             ha_client=ha_client,
         ),
+        audit=AuditLogger(settings.audit_log_path),
     )
 
 
@@ -56,6 +58,7 @@ def cmd_doctor(args) -> int:
         "nsp_provider": settings.nsp_provider,
         "write_mode": settings.allow_write_automations,
         "ha_config_dir": str(settings.ha_config_dir) if settings.ha_config_dir else None,
+        "audit_log_path": str(settings.audit_log_path) if settings.audit_log_path else None,
     }
     for key, value in checks.items():
         print(f"{key}: {value}")

@@ -62,6 +62,10 @@ class RuleBasedParser(Parser):
     def _driveway_rule(self, text: str, snapshot: EntitySnapshot) -> RuleDraft:
         trigger = snapshot.find_one(text, {"binary_sensor"}, ["driveway", "garage", "motion"])
         family = snapshot.find_one(text, {"group", "person"}, ["family", "home", "occupancy"])
+        if family is None and ("nobody" in text.lower() or "no one" in text.lower() or "away" in text.lower()):
+            family = snapshot.by_id.get("group.family")
+            if family is None:
+                family = next((state for state in snapshot.states if state.domain == "group"), None)
         missing = []
         if not trigger:
             missing.append("driveway or garage motion sensor")
@@ -196,4 +200,3 @@ def build_parser(settings: Settings) -> Parser:
     if settings.nsp_provider in {"openai", "openai-compatible", "llm"}:
         return OpenAICompatibleParser(settings)
     return RuleBasedParser()
-

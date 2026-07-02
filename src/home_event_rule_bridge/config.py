@@ -45,11 +45,13 @@ class Settings:
     openai_model: str
     allow_write_automations: bool
     ha_config_dir: Path | None
+    audit_log_path: Path | None
 
     @classmethod
     def from_env(cls) -> "Settings":
         _load_dotenv()
         config_dir = os.environ.get("HA_CONFIG_DIR") or None
+        audit_log = os.environ.get("BRIDGE_AUDIT_LOG") or None
         return cls(
             telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN") or None,
             telegram_allowed_chat_ids=_csv_env("TELEGRAM_ALLOWED_CHAT_IDS"),
@@ -63,4 +65,5 @@ class Settings:
             openai_model=os.environ.get("OPENAI_COMPAT_MODEL", "qwen3:1.7b"),
             allow_write_automations=_bool_env("ALLOW_WRITE_AUTOMATIONS", False),
             ha_config_dir=Path(config_dir) if config_dir else None,
+            audit_log_path=Path(audit_log) if audit_log else None,
         )

@@ -21,7 +21,7 @@ It starts with Discord for the Home Assistant / open-source community, while kee
 - Reads Home Assistant entities through the local HA API.
 - Parses an IM message into a structured `RuleDraft`.
 - Resolves entities against real HA state names instead of inventing ids.
-- Produces a Home Assistant automation YAML preview.
+- Produces a human-readable rule draft first, with YAML available on request.
 - Requires `CONFIRM <draft_id>` before any write path.
 - Defaults to dry-run mode.
 
@@ -86,12 +86,28 @@ Try sending:
 If a package is no longer visible on the porch, message me.
 ```
 
-The bot will reply with a draft and YAML preview. Use:
+The bot will reply with a concise rule card. Use:
 
 ```text
-CONFIRM <draft_id>
-CANCEL <draft_id>
+confirm
+show yaml
+cancel
 ```
+
+Other useful commands:
+
+```text
+help
+status
+list rules
+show rule <rule_id>
+show yaml <draft_id_or_rule_id>
+edit <clearer rule sentence>
+```
+
+If the bridge is missing a device or condition, it asks a short clarification
+question instead of guessing. You can reply with a numbered entity, a full
+entity id, or a clearer rule sentence.
 
 ## Telegram mode
 
@@ -115,11 +131,12 @@ Try sending:
 If a package is no longer visible on the porch, message me.
 ```
 
-The bot will reply with a draft and YAML preview. Use:
+The bot will reply with a concise rule card. Use:
 
 ```text
-CONFIRM <draft_id>
-CANCEL <draft_id>
+confirm
+show yaml
+cancel
 ```
 
 ## Write mode
@@ -137,7 +154,17 @@ The bridge only writes:
 packages/home_event_rule_bridge.yaml
 ```
 
+Write mode refuses to start a commit unless `configuration.yaml` appears to
+enable Home Assistant packages. Add the package include first, then enable
+write mode.
+
 After a confirmed write, it calls `automation.reload` through Home Assistant.
+
+For an optional local audit trail of confirmed dry-runs or writes, set:
+
+```text
+BRIDGE_AUDIT_LOG=audit/home_event_rule_bridge.jsonl
+```
 
 ## NSP provider
 

@@ -79,8 +79,6 @@ class EntitySnapshot:
                 if len(token) >= 4 and token in haystack:
                     score += 2
             for hint in hints:
-                if hint in search_text:
-                    score += 4
                 if hint in haystack and hint in search_text:
                     score += 4
             if score:
@@ -133,4 +131,3 @@ class HomeAssistantClient:
 
     def call_service(self, domain: str, service: str, payload: dict[str, Any] | None = None) -> Any:
         return self._request("POST", f"/api/services/{domain}/{service}", payload or {})
-

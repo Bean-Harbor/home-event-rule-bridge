@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -99,3 +100,16 @@ class ValidationResult:
     def failure(cls, errors: list[str], warnings: list[str] | None = None) -> "ValidationResult":
         return cls(ok=False, errors=errors, warnings=warnings or [])
 
+
+@dataclass(frozen=True)
+class ManagedRule:
+    rule_id: str
+    draft_id: str
+    chat_id: str
+    user_text: str
+    explanation: str
+    yaml_preview: str
+    status: str = "active"
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    last_result: str = ""
