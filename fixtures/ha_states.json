@@ -1,0 +1,38 @@
+[
+  {
+    "entity_id": "binary_sensor.driveway_motion",
+    "state": "off",
+    "attributes": { "friendly_name": "Driveway motion" }
+  },
+  {
+    "entity_id": "group.family",
+    "state": "home",
+    "attributes": { "friendly_name": "Family" }
+  },
+  {
+    "entity_id": "binary_sensor.porch_package_visible",
+    "state": "off",
+    "attributes": { "friendly_name": "Porch package visible" }
+  },
+  {
+    "entity_id": "camera.front_door",
+    "state": "idle",
+    "attributes": { "friendly_name": "Front door camera" }
+  },
+  {
+    "entity_id": "camera.living_room",
+    "state": "idle",
+    "attributes": { "friendly_name": "Living room camera" }
+  },
+  {
+    "entity_id": "person.alex",
+    "state": "not_home",
+    "attributes": { "friendly_name": "Alex" }
+  },
+  {
+    "entity_id": "light.entry",
+    "state": "off",
+    "attributes": { "friendly_name": "Entry light" }
+  }
+]
+
