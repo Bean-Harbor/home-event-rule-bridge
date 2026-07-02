@@ -14,7 +14,7 @@ Rule draft + YAML preview
 Confirm before anything can be written
 ```
 
-It starts with Telegram long polling because that does not require exposing Home Assistant to the public internet.
+It starts with Discord for the Home Assistant / open-source community, while keeping Telegram as the simplest polling option for power users.
 
 ## What it does
 
@@ -47,6 +47,50 @@ Run tests:
 
 ```powershell
 python -m pytest -q
+```
+
+## Discord mode
+
+Discord is the recommended first testing channel for the GitHub wedge.
+
+Create a Discord application and bot in the Discord Developer Portal, then:
+
+1. Enable the bot's `Message Content Intent`.
+2. Invite the bot to your test server with permission to view channels and send messages.
+3. Copy `examples/.env.example` to `.env` and fill:
+
+```text
+DISCORD_BOT_TOKEN=...
+DISCORD_ALLOWED_CHANNEL_IDS=...
+HA_URL=http://homeassistant.local:8123
+HA_TOKEN=...
+```
+
+Install the optional Discord dependency:
+
+```powershell
+pip install -e .[discord]
+```
+
+Start the bridge:
+
+```powershell
+home-rule-bridge run-discord
+```
+
+If `DISCORD_ALLOWED_CHANNEL_IDS` is set, the bot listens in those channels. If it is empty, the bot only responds in DMs or when mentioned in a server channel.
+
+Try sending:
+
+```text
+If a package is no longer visible on the porch, message me.
+```
+
+The bot will reply with a draft and YAML preview. Use:
+
+```text
+CONFIRM <draft_id>
+CANCEL <draft_id>
 ```
 
 ## Telegram mode

@@ -49,6 +49,8 @@ def cmd_doctor(args) -> int:
     settings = Settings.from_env()
     checks = {
         "telegram_token": bool(settings.telegram_bot_token),
+        "discord_token": bool(settings.discord_bot_token),
+        "discord_allowed_channel_count": len(settings.discord_allowed_channel_ids),
         "ha_url": bool(settings.ha_url),
         "ha_token": bool(settings.ha_token),
         "nsp_provider": settings.nsp_provider,
@@ -81,6 +83,27 @@ def cmd_run(args) -> int:
     return 0
 
 
+def cmd_run_discord(args) -> int:
+    settings = Settings.from_env()
+    if not settings.discord_bot_token:
+        raise SystemExit("DISCORD_BOT_TOKEN is required for run-discord mode.")
+    ha_client = None
+    if settings.ha_url and settings.ha_token:
+        ha_client = HomeAssistantClient(settings.ha_url, settings.ha_token)
+    bridge = _build_bridge(settings, ha_client)
+
+    from .discord_bot import DiscordBot
+
+    bot = DiscordBot(settings.discord_bot_token, settings.discord_allowed_channel_ids)
+
+    def handle(chat_id: str, text: str) -> str:
+        snapshot = ha_client.states() if ha_client else _load_snapshot(args, settings)
+        return bridge.handle_text(chat_id, text, snapshot).text
+
+    bot.run(handle)
+    return 0
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-rule-bridge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -93,6 +116,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="Run the Telegram polling bridge.")
     run.add_argument("--states", help="Optional fixture path when HA_URL/HA_TOKEN are not configured.")
     run.set_defaults(func=cmd_run)
+
+    run_discord = sub.add_parser("run-discord", help="Run the Discord bridge.")
+    run_discord.add_argument("--states", help="Optional fixture path when HA_URL/HA_TOKEN are not configured.")
+    run_discord.set_defaults(func=cmd_run_discord)
 
     doctor = sub.add_parser("doctor", help="Check local configuration.")
     doctor.set_defaults(func=cmd_doctor)
