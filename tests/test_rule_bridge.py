@@ -32,6 +32,14 @@ class RuleBridgeTests(unittest.TestCase):
         self.assertIn("persistent_notification.create", yaml_text)
         self.assertEqual(draft.trigger.to_state, "off")
 
+    def test_harbordock_switch_offline_matches_partial_name(self) -> None:
+        snapshot = fixture_snapshot()
+        draft = RuleBasedParser().parse("Let me know if the HarborDock test switch goes offline", snapshot)
+        result = validate_draft(draft, snapshot)
+        self.assertTrue(result.ok)
+        self.assertEqual(draft.trigger.entity_id, "switch.harbordock_test_switch")
+        self.assertEqual(draft.trigger.to_state, "unavailable")
+
     def test_driveway_rule_uses_nobody_home_condition(self) -> None:
         snapshot = fixture_snapshot()
         draft = RuleBasedParser().parse(
@@ -86,9 +94,21 @@ class RuleBridgeTests(unittest.TestCase):
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
         help_reply = bridge.handle_text("chat-1", "help", snapshot)
         self.assertIn("Home Event Rule Bridge", help_reply.text)
+        self.assertIn("devices", help_reply.text)
         self.assertIn("dry-run mode", help_reply.text)
         status_reply = bridge.handle_text("chat-1", "status", snapshot)
         self.assertIn("HA snapshot:", status_reply.text)
+
+    def test_devices_and_find_commands_use_entity_inventory(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        devices = bridge.handle_text("chat-1", "devices", snapshot)
+        self.assertIn("I can see", devices.text)
+        self.assertIn("switch.harbordock_test_switch", devices.text)
+        find_switch = bridge.handle_text("chat-1", "find switch", snapshot)
+        self.assertIn("switch.harbordock_test_switch", find_switch.text)
+        find_harbordock = bridge.handle_text("chat-1", "Find devices related to HarborDock", snapshot)
+        self.assertIn("light.harbordock_test_light", find_harbordock.text)
 
     def test_show_yaml_is_explicit(self) -> None:
         snapshot = fixture_snapshot()
@@ -118,8 +138,8 @@ class RuleBridgeTests(unittest.TestCase):
         snapshot = fixture_snapshot()
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
         reply = bridge.handle_text("chat-1", "Let me know if a mystery device goes offline", snapshot)
-        self.assertIn("I need a little more detail", reply.text)
-        self.assertIn("Which entity should I use?", reply.text)
+        self.assertIn("Which device should I watch?", reply.text)
+        self.assertIn("Candidates:", reply.text)
 
     def test_clarification_number_updates_latest_draft(self) -> None:
         snapshot = fixture_snapshot()
@@ -128,6 +148,35 @@ class RuleBridgeTests(unittest.TestCase):
         updated = bridge.handle_text("chat-1", "1", snapshot)
         self.assertIn("Draft ready", updated.text)
         self.assertIn("Confidence:", updated.text)
+
+    def test_draft_card_uses_dogfood_format(self) -> None:
+        snapshot = fixture_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        reply = bridge.handle_text("chat-1", "Let me know if the HarborDock test switch goes offline", snapshot)
+        self.assertIn("When: switch.harbordock_test_switch -> unavailable", reply.text)
+        self.assertIn("If: none", reply.text)
+        self.assertIn("Do: persistent_notification.create", reply.text)
+        self.assertIn("Matched: switch.harbordock_test_switch", reply.text)
+        self.assertIn("Safety: dry-run until confirmed", reply.text)
+
+    def test_common_low_risk_actions_generate_drafts(self) -> None:
+        snapshot = fixture_snapshot()
+        parser = RuleBasedParser()
+        turn_on = parser.parse("Turn on the hallway light when someone arrives home", snapshot)
+        self.assertTrue(validate_draft(turn_on, snapshot).ok)
+        self.assertEqual(turn_on.actions[0].service, "light.turn_on")
+        self.assertEqual(turn_on.actions[0].target, {"entity_id": "light.hallway"})
+
+        turn_off = parser.parse("Turn off the living room light when nobody is home", snapshot)
+        self.assertTrue(validate_draft(turn_off, snapshot).ok)
+        self.assertEqual(turn_off.trigger.entity_id, "group.family")
+        self.assertEqual(turn_off.actions[0].service, "light.turn_off")
+        self.assertEqual(turn_off.actions[0].target, {"entity_id": "light.living_room"})
+
+        scene = parser.parse("Run the evening scene when I say movie time", snapshot)
+        self.assertTrue(validate_draft(scene, snapshot).ok)
+        self.assertEqual(scene.actions[0].service, "scene.turn_on")
+        self.assertEqual(scene.actions[0].target, {"entity_id": "scene.evening"})
 
     def test_list_and_show_confirmed_rules(self) -> None:
         snapshot = fixture_snapshot()

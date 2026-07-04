@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -8,6 +9,24 @@ from pathlib import Path
 from typing import Any
 
 from .models import EntityRef
+
+
+def normalize_entity_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _query_tokens(text: str) -> set[str]:
+    tokens = set(normalize_entity_text(text).split())
+    aliases: dict[str, str] = {
+        "switches": "switch",
+        "lights": "light",
+        "cameras": "camera",
+        "sensors": "sensor",
+        "scenes": "scene",
+        "scripts": "script",
+        "devices": "device",
+    }
+    return {aliases.get(token, token) for token in tokens}
 
 
 @dataclass(frozen=True)
@@ -22,7 +41,7 @@ class HomeAssistantState:
 
     @property
     def search_text(self) -> str:
-        return f"{self.entity_id} {self.friendly_name or ''}".lower().replace("_", " ")
+        return normalize_entity_text(f"{self.entity_id} {self.friendly_name or ''}")
 
 
 class EntitySnapshot:
@@ -65,21 +84,29 @@ class EntitySnapshot:
         return matches[0] if matches else None
 
     def find(self, text: str, domains: set[str] | None = None, hints: list[str] | None = None) -> list[HomeAssistantState]:
-        haystack = text.lower().replace("_", " ")
-        hints = [hint.lower().replace("_", " ") for hint in (hints or [])]
+        haystack = normalize_entity_text(text)
+        tokens = _query_tokens(text)
+        hints = [normalize_entity_text(hint) for hint in (hints or [])]
         scored: list[tuple[int, HomeAssistantState]] = []
         for state in self.states:
             if domains and state.domain not in domains:
                 continue
             score = 0
             search_text = state.search_text
-            if state.entity_id.lower() in haystack:
+            search_tokens = set(search_text.split())
+            entity_text = normalize_entity_text(state.entity_id)
+            friendly_text = normalize_entity_text(state.friendly_name or "")
+            if entity_text and entity_text in haystack:
+                score += 12
+            if friendly_text and friendly_text in haystack:
                 score += 10
-            for token in search_text.split():
-                if len(token) >= 4 and token in haystack:
+            if state.domain in tokens:
+                score += 6
+            for token in tokens:
+                if len(token) >= 3 and token in search_tokens:
                     score += 2
             for hint in hints:
-                if hint in haystack and hint in search_text:
+                if hint and hint in haystack and hint in search_text:
                     score += 4
             if score:
                 scored.append((score, state))

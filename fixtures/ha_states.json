@@ -5,6 +5,11 @@
     "attributes": { "friendly_name": "Driveway motion" }
   },
   {
+    "entity_id": "binary_sensor.garage_motion",
+    "state": "off",
+    "attributes": { "friendly_name": "Garage motion" }
+  },
+  {
     "entity_id": "group.family",
     "state": "home",
     "attributes": { "friendly_name": "Family" }
@@ -25,6 +30,16 @@
     "attributes": { "friendly_name": "Living room camera" }
   },
   {
+    "entity_id": "switch.harbordock_test_switch",
+    "state": "on",
+    "attributes": { "friendly_name": "HarborDock test switch" }
+  },
+  {
+    "entity_id": "light.harbordock_test_light",
+    "state": "off",
+    "attributes": { "friendly_name": "HarborDock test light" }
+  },
+  {
     "entity_id": "person.alex",
     "state": "not_home",
     "attributes": { "friendly_name": "Alex" }
@@ -33,6 +48,25 @@
     "entity_id": "light.entry",
     "state": "off",
     "attributes": { "friendly_name": "Entry light" }
+  },
+  {
+    "entity_id": "light.hallway",
+    "state": "off",
+    "attributes": { "friendly_name": "Hallway light" }
+  },
+  {
+    "entity_id": "light.living_room",
+    "state": "on",
+    "attributes": { "friendly_name": "Living room light" }
+  },
+  {
+    "entity_id": "scene.evening",
+    "state": "scening",
+    "attributes": { "friendly_name": "Evening scene" }
+  },
+  {
+    "entity_id": "script.movie_time",
+    "state": "off",
+    "attributes": { "friendly_name": "Movie time script" }
   }
 ]
-

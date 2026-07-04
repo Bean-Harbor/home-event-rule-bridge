@@ -46,6 +46,10 @@ class RuleBridge:
             return BridgeReply(self._help_text(snapshot))
         if lower in {"status", "/status"}:
             return BridgeReply(self._status_text(snapshot))
+        if lower in {"devices", "what devices do you know about?", "what devices do you know about"}:
+            return BridgeReply(self._devices_text(snapshot))
+        if lower.startswith("find "):
+            return BridgeReply(self._find_text(stripped[5:].strip(), snapshot))
         if lower in {"list rules", "rules"}:
             return BridgeReply(self._list_rules(chat_id))
         if lower.startswith("show rule "):
@@ -246,7 +250,7 @@ class RuleBridge:
             "- Let me know if the HarborDock test switch goes offline\n"
             "- If a package is no longer visible on the porch, message me\n"
             "- When driveway motion happens while nobody is home, notify me\n\n"
-            "Commands: `status`, `show yaml`, `confirm`, `cancel`, `list rules`, `show rule <id>`."
+            "Commands: `devices`, `find <text>`, `status`, `show yaml`, `confirm`, `cancel`, `list rules`, `show rule <id>`."
         )
 
     def _status_text(self, snapshot: EntitySnapshot) -> str:
@@ -259,7 +263,7 @@ class RuleBridge:
 
     def _clarification_card(self, draft: RuleDraft, suggestions: list[str]) -> str:
         lines = [
-            "I need a little more detail before this can become a rule.",
+            self._clarification_question(draft.missing_slots),
             f"Draft: {draft.id}",
             f"Confidence: {draft.confidence:.2f}",
             f"Reason: {draft.explanation}",
@@ -267,7 +271,7 @@ class RuleBridge:
         if draft.missing_slots:
             lines.append("Missing: " + ", ".join(draft.missing_slots))
         if suggestions:
-            lines.append("\nWhich entity should I use?")
+            lines.append("\nCandidates:")
             for index, entity_id in enumerate(suggestions, start=1):
                 lines.append(f"{index}. {entity_id}")
             lines.append("\nReply with a number, an entity id, `edit <clearer rule>`, or `cancel`.")
@@ -279,11 +283,12 @@ class RuleBridge:
         lines = [
             "Draft ready.",
             f"Draft: {draft.id}",
-            f"Rule: {draft.explanation}",
-            f"Trigger: {self._trigger_text(draft.trigger)}",
-            f"Conditions: {self._conditions_text(draft.conditions)}",
-            f"Actions: {self._actions_text(draft.actions)}",
-            f"Entities: {self._entities_text(draft.entities)}",
+            f"Meaning: {draft.explanation}",
+            f"When: {self._trigger_text(draft.trigger)}",
+            f"If: {self._conditions_text(draft.conditions)}",
+            f"Do: {self._actions_text(draft.actions)}",
+            f"Matched: {self._entities_text(draft.entities)}",
+            "Safety: dry-run until confirmed",
             f"Risk: {draft.risk_level}",
             f"Confidence: {draft.confidence:.2f}",
         ]
@@ -297,11 +302,84 @@ class RuleBridge:
     def _entity_suggestions(self, draft: RuleDraft, text: str, snapshot: EntitySnapshot) -> list[str]:
         if not draft.missing_slots and draft.confidence >= self.CLARIFICATION_THRESHOLD:
             return []
-        domains = {"binary_sensor", "sensor", "switch", "light", "camera", "person", "group"}
+        missing = " ".join(draft.missing_slots).lower()
+        if "scene" in missing or "script" in missing:
+            domains = {"scene", "script"}
+        elif "action target" in missing:
+            domains = {"light", "switch"}
+        elif "person" in missing or "tracker" in missing:
+            domains = {"person", "device_tracker"}
+        elif "motion" in missing:
+            domains = {"binary_sensor"}
+        elif "package" in missing:
+            domains = {"binary_sensor", "sensor"}
+        else:
+            domains = {"binary_sensor", "sensor", "switch", "light", "camera", "person", "group", "scene", "script"}
         matches = snapshot.find(text, domains=domains)
         if not matches:
             matches = [state for state in snapshot.states if state.domain in domains]
         return [state.entity_id for state in matches[:5]]
+
+    def _devices_text(self, snapshot: EntitySnapshot) -> str:
+        if not snapshot.states:
+            return "I do not have a Home Assistant entity snapshot yet."
+        order = ["binary_sensor", "camera", "light", "switch", "scene", "script", "person", "group", "sensor"]
+        grouped: dict[str, list[str]] = {}
+        for state in snapshot.states:
+            grouped.setdefault(state.domain, []).append(self._format_entity(state.entity_id, state.friendly_name))
+        lines = [f"I can see {len(snapshot.states)} Home Assistant entities:"]
+        for domain in order + sorted(set(grouped) - set(order)):
+            items = sorted(grouped.get(domain, []))
+            if not items:
+                continue
+            visible = items[:6]
+            suffix = f" (+{len(items) - len(visible)} more)" if len(items) > len(visible) else ""
+            lines.append(f"- {domain}: " + ", ".join(visible) + suffix)
+        lines.append("\nUse `find <text>` to narrow this down.")
+        return "\n".join(lines)
+
+    def _find_text(self, query: str, snapshot: EntitySnapshot) -> str:
+        cleaned = self._clean_find_query(query)
+        if not cleaned:
+            return "Tell me what to find, for example `find switch` or `find harbordock`."
+        matches = snapshot.find(cleaned)
+        if not matches:
+            return f"I could not find anything matching `{cleaned}`. Try `devices` to see what I know."
+        lines = [f"Matches for `{cleaned}`:"]
+        for state in matches[:8]:
+            lines.append(f"- {self._format_entity(state.entity_id, state.friendly_name)} [{state.state}]")
+        if len(matches) > 8:
+            lines.append(f"...and {len(matches) - 8} more.")
+        return "\n".join(lines)
+
+    def _clean_find_query(self, query: str) -> str:
+        lowered = query.strip().lower()
+        prefixes = [
+            "devices related to ",
+            "device related to ",
+            "entities related to ",
+            "entity related to ",
+            "related to ",
+        ]
+        for prefix in prefixes:
+            if lowered.startswith(prefix):
+                return query.strip()[len(prefix) :].strip()
+        return query.strip()
+
+    def _format_entity(self, entity_id: str, friendly_name: str | None) -> str:
+        return f"{entity_id} ({friendly_name})" if friendly_name else entity_id
+
+    def _clarification_question(self, missing_slots: list[str]) -> str:
+        missing = " ".join(missing_slots).lower()
+        if "action" in missing and "target" not in missing:
+            return "What should happen: notify you, turn something on/off, or run a scene?"
+        if "action target" in missing:
+            return "Which device should I control?"
+        if "scene" in missing or "script" in missing:
+            return "Which scene or script should I run?"
+        if "condition" in missing:
+            return "Should this always run, or only when nobody is home / after sunset?"
+        return "Which device should I watch?"
 
     def _trigger_text(self, trigger: TriggerSpec) -> str:
         if trigger.kind == "state":
@@ -327,10 +405,13 @@ class RuleBridge:
         rendered = []
         for action in actions:
             title = action.data.get("title") if action.data else None
-            rendered.append(f"{action.service}" + (f" ({title})" if title else ""))
+            target = (action.target or {}).get("entity_id")
+            label = action.label or title
+            detail = label or target
+            rendered.append(f"{action.service}" + (f" ({detail})" if detail else ""))
         return "; ".join(rendered)
 
     def _entities_text(self, entities: list[EntityRef]) -> str:
         if not entities:
             return "none matched"
-        return ", ".join(entity.entity_id for entity in entities)
+        return ", ".join(self._format_entity(entity.entity_id, entity.name) for entity in entities)

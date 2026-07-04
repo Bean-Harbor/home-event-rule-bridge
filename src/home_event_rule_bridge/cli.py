@@ -8,7 +8,6 @@ from pathlib import Path
 from .audit import AuditLogger
 from .approval import ApprovalStore
 from .bridge import RuleBridge
-from .compiler import validate_draft
 from .config import Settings
 from .ha import EntitySnapshot, HomeAssistantClient
 from .nsp import build_parser
@@ -79,6 +78,13 @@ def cmd_eval(args) -> int:
     settings = Settings.from_env()
     snapshot = _load_snapshot(args, settings)
     parser = build_parser(settings)
+    approvals = ApprovalStore()
+    bridge = RuleBridge(
+        parser=parser,
+        approvals=approvals,
+        writer=AutomationWriter(False, None),
+        audit=AuditLogger(settings.audit_log_path),
+    )
     prompts = _load_prompts(Path(args.prompts))
     if not prompts:
         raise SystemExit(f"No prompts found in {args.prompts}")
@@ -86,6 +92,7 @@ def cmd_eval(args) -> int:
     ready = 0
     clarify = 0
     blocked = 0
+    info = 0
     invalid_entity = 0
 
     print(f"profile: {settings.nsp_profile}")
@@ -95,29 +102,39 @@ def cmd_eval(args) -> int:
 
     for index, prompt in enumerate(prompts, start=1):
         started = time.perf_counter()
-        draft = parser.parse(prompt, snapshot)
+        reply = bridge.handle_text("eval", prompt, snapshot)
         elapsed_ms = int((time.perf_counter() - started) * 1000)
-        result = validate_draft(draft, snapshot)
-        visible_errors = [item for item in result.errors if "None" not in item]
-        has_unknown_entity = any("unknown" in item for item in visible_errors)
-        invalid_entity += int(has_unknown_entity)
-        if result.ok and not draft.missing_slots and draft.confidence >= 0.60:
-            status = "ready"
-            ready += 1
-        elif draft.missing_slots or draft.confidence < 0.60:
-            status = "clarify"
-            clarify += 1
+        pending = approvals.get(reply.draft_id, "eval") if reply.draft_id else None
+        visible_errors: list[str] = []
+        if pending:
+            draft = pending.draft
+            result = pending.validation
+            visible_errors = [item for item in result.errors if "None" not in item]
+            has_unknown_entity = any("unknown" in item for item in visible_errors)
+            invalid_entity += int(has_unknown_entity)
+            if result.ok and not draft.missing_slots and draft.confidence >= 0.60:
+                status = "ready"
+                ready += 1
+            elif draft.missing_slots or draft.confidence < 0.60:
+                status = "clarify"
+                clarify += 1
+            else:
+                status = "blocked"
+                blocked += 1
+            explanation = draft.explanation
         else:
-            status = "blocked"
-            blocked += 1
-        print(f"{index}. {status} confidence={draft.confidence:.2f} latency_ms={elapsed_ms}")
+            status = "info"
+            info += 1
+            explanation = reply.text.splitlines()[0] if reply.text else ""
+        confidence = f"{pending.draft.confidence:.2f}" if pending else "n/a"
+        print(f"{index}. {status} confidence={confidence} latency_ms={elapsed_ms}")
         print(f"   {prompt}")
-        print(f"   {draft.explanation}")
+        print(f"   {explanation}")
         if visible_errors:
             print(f"   errors: {'; '.join(visible_errors)}")
 
     print()
-    print(f"summary: ready={ready} clarify={clarify} blocked={blocked} invalid_entity={invalid_entity}")
+    print(f"summary: ready={ready} clarify={clarify} info={info} blocked={blocked} invalid_entity={invalid_entity}")
     return 0
 
 

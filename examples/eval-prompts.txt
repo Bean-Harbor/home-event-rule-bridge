@@ -5,7 +5,11 @@ Let me know if the HarborDock test switch goes offline
 If driveway motion happens when nobody is home, message me
 If a package is no longer visible on the porch, message me
 Notify me when a family member arrives home
-Tell me if the pet is doing something unusual in the living room
 Turn on the hallway light when someone arrives home
-Let me know if a mystery device goes offline
-If the garage has motion while everyone is away, send me a message
+Turn off the living room light when nobody is home
+Run the evening scene when I say movie time
+Tell me if the front door camera goes offline
+If garage motion happens while everyone is away, send me a message
+Find devices related to HarborDock
+Find switches
+What devices do you know about?
