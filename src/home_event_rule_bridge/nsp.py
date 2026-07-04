@@ -276,8 +276,6 @@ class RuleBasedParser(Parser):
         matches = snapshot.find(text, domains=domains, hints=hints)
         if not matches:
             return None
-        if len(matches) == 1:
-            return matches[0]
         query_tokens = set(normalize_entity_text(text).split())
         generic = {
             "a",
@@ -310,11 +308,27 @@ class RuleBasedParser(Parser):
             "nobody",
             "everyone",
             "away",
+            "someone",
+            "family",
+            "member",
+            "arrives",
+            "arrive",
+            "arrived",
+            "when",
+            "while",
+            "say",
+            "time",
             *domains,
         }
+        specific_query_tokens = query_tokens - generic
+        if len(matches) == 1:
+            if not specific_query_tokens:
+                return matches[0]
+            state_tokens = set(matches[0].search_text.split()) - generic
+            return matches[0] if state_tokens & specific_query_tokens else None
         for state in matches:
             specific_tokens = set(state.search_text.split()) - generic
-            if specific_tokens & query_tokens:
+            if specific_tokens & specific_query_tokens:
                 return state
         return None
 

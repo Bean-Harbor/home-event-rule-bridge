@@ -178,6 +178,25 @@ class RuleBridgeTests(unittest.TestCase):
         self.assertEqual(scene.actions[0].service, "scene.turn_on")
         self.assertEqual(scene.actions[0].target, {"entity_id": "scene.evening"})
 
+    def test_specific_room_name_does_not_match_only_generic_light(self) -> None:
+        snapshot = EntitySnapshot.from_api_states(
+            [
+                {
+                    "entity_id": "person.harbordock_lab",
+                    "state": "not_home",
+                    "attributes": {"friendly_name": "HarborDock Lab"},
+                },
+                {
+                    "entity_id": "light.harbordock_test_light",
+                    "state": "off",
+                    "attributes": {"friendly_name": "HarborDock Test Light"},
+                },
+            ]
+        )
+        draft = RuleBasedParser().parse("Turn on the hallway light when someone arrives home", snapshot)
+        self.assertIn("action target", draft.missing_slots)
+        self.assertNotEqual(draft.actions[0].target, {"entity_id": "light.harbordock_test_light"})
+
     def test_list_and_show_confirmed_rules(self) -> None:
         snapshot = fixture_snapshot()
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
