@@ -197,6 +197,33 @@ class RuleBridgeTests(unittest.TestCase):
         self.assertIn("action target", draft.missing_slots)
         self.assertNotEqual(draft.actions[0].target, {"entity_id": "light.harbordock_test_light"})
 
+    def test_missing_camera_does_not_suggest_unrelated_entities(self) -> None:
+        snapshot = EntitySnapshot.from_api_states(
+            [
+                {
+                    "entity_id": "scene.harbordock_test_on",
+                    "state": "scening",
+                    "attributes": {"friendly_name": "HarborDock Test On"},
+                },
+                {
+                    "entity_id": "person.harbordock_lab",
+                    "state": "home",
+                    "attributes": {"friendly_name": "HarborDock Lab"},
+                },
+                {
+                    "entity_id": "sensor.sun_next_dawn",
+                    "state": "2026-07-05T12:00:00+00:00",
+                    "attributes": {"friendly_name": "Sun Next dawn"},
+                },
+            ]
+        )
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        reply = bridge.handle_text("chat-1", "Tell me if the front door camera goes offline", snapshot)
+        self.assertIn("Which device should I watch?", reply.text)
+        self.assertNotIn("scene.harbordock_test_on", reply.text)
+        self.assertNotIn("person.harbordock_lab", reply.text)
+        self.assertNotIn("sensor.sun_next_dawn", reply.text)
+
     def test_list_and_show_confirmed_rules(self) -> None:
         snapshot = fixture_snapshot()
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))

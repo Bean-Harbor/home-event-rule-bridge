@@ -303,6 +303,8 @@ class RuleBridge:
         if not draft.missing_slots and draft.confidence >= self.CLARIFICATION_THRESHOLD:
             return []
         missing = " ".join(draft.missing_slots).lower()
+        lower_text = text.lower()
+        allow_fallback = True
         if "scene" in missing or "script" in missing:
             domains = {"scene", "script"}
         elif "action target" in missing:
@@ -313,12 +315,25 @@ class RuleBridge:
             domains = {"binary_sensor"}
         elif "package" in missing:
             domains = {"binary_sensor", "sensor"}
+        elif "device entity" in missing or "device" in missing:
+            domains, allow_fallback = self._monitor_domains_for_text(lower_text)
         else:
             domains = {"binary_sensor", "sensor", "switch", "light", "camera", "person", "group", "scene", "script"}
         matches = snapshot.find(text, domains=domains)
         if not matches:
-            matches = [state for state in snapshot.states if state.domain in domains]
+            matches = [state for state in snapshot.states if state.domain in domains] if allow_fallback else []
         return [state.entity_id for state in matches[:5]]
+
+    def _monitor_domains_for_text(self, lower_text: str) -> tuple[set[str], bool]:
+        if "camera" in lower_text:
+            return {"camera"}, False
+        if "switch" in lower_text:
+            return {"switch"}, False
+        if "light" in lower_text:
+            return {"light"}, False
+        if "sensor" in lower_text:
+            return {"binary_sensor", "sensor"}, False
+        return {"binary_sensor", "sensor", "switch", "light", "camera", "input_boolean"}, True
 
     def _devices_text(self, snapshot: EntitySnapshot) -> str:
         if not snapshot.states:
