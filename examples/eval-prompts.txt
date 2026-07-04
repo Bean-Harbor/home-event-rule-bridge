@@ -1,0 +1,11 @@
+# One Home Assistant rule request per line.
+# These are intentionally small, common household cases.
+
+Let me know if the HarborDock test switch goes offline
+If driveway motion happens when nobody is home, message me
+If a package is no longer visible on the porch, message me
+Notify me when a family member arrives home
+Tell me if the pet is doing something unusual in the living room
+Turn on the hallway light when someone arrives home
+Let me know if a mystery device goes offline
+If the garage has motion while everyone is away, send me a message

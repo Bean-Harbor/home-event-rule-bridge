@@ -10,12 +10,20 @@ from .models import ActionSpec, ConditionSpec, RuleDraft, TriggerSpec, new_draft
 
 
 class Parser(ABC):
+    @property
+    def display_name(self) -> str:
+        return self.__class__.__name__
+
     @abstractmethod
     def parse(self, text: str, snapshot: EntitySnapshot) -> RuleDraft:
         raise NotImplementedError
 
 
 class RuleBasedParser(Parser):
+    @property
+    def display_name(self) -> str:
+        return "rules-only"
+
     def parse(self, text: str, snapshot: EntitySnapshot) -> RuleDraft:
         lower = text.lower()
         if "package" in lower or "parcel" in lower:
@@ -161,6 +169,12 @@ class OpenAICompatibleParser(Parser):
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
+    @property
+    def display_name(self) -> str:
+        if self.settings.nsp_profile == "remote-dev":
+            return f"remote-dev model ({self.settings.openai_model})"
+        return f"{self.settings.nsp_profile} local model ({self.settings.openai_model})"
+
     def parse(self, text: str, snapshot: EntitySnapshot) -> RuleDraft:
         entities = [
             {"entity_id": state.entity_id, "friendly_name": state.friendly_name, "state": state.state}
@@ -197,6 +211,6 @@ class OpenAICompatibleParser(Parser):
 
 
 def build_parser(settings: Settings) -> Parser:
-    if settings.nsp_provider in {"openai", "openai-compatible", "llm"}:
+    if settings.uses_model:
         return OpenAICompatibleParser(settings)
     return RuleBasedParser()

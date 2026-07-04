@@ -252,7 +252,7 @@ class RuleBridge:
     def _status_text(self, snapshot: EntitySnapshot) -> str:
         connection = f"HA snapshot: {len(snapshot.states)} entities" if snapshot.states else "HA snapshot: empty or unavailable"
         write_mode = "write mode" if self.writer.allow_write else "dry-run mode"
-        return f"Status: {connection}; {write_mode}; parser={self.parser.__class__.__name__}."
+        return f"Status: {connection}; {write_mode}; parser={self.parser.display_name}."
 
     def _needs_clarification(self, draft: RuleDraft, validation_ok: bool) -> bool:
         return bool(draft.missing_slots) or draft.confidence < self.CLARIFICATION_THRESHOLD or not validation_ok

@@ -2,7 +2,7 @@
 
 Describe a Home Assistant rule in Discord. Review a readable draft. Confirm before anything changes.
 
-Home Assistant is powerful, but creating a small rule still means thinking in entities, triggers, conditions, services, and YAML. This project tests a lower-friction workflow:
+Home Assistant is powerful, but creating a small rule still means thinking in entities, triggers, conditions, services, and YAML. This project tries a lower-friction workflow:
 
 ```text
 "Let me know if the HarborDock test switch goes offline"
@@ -74,13 +74,30 @@ Dry-run mode: no Home Assistant files were changed.
 
 Most smart-home alerts start easy and then turn into noise. Motion detected. Device offline. Person seen. Door opened. The hard part is not sending more alerts. The useful part is turning a household sentence into a reviewable rule with the right device, condition, and action.
 
-This repo starts with a narrow Home Assistant + Discord wedge:
+The first working path is intentionally narrow:
 
 - Use natural language as the entry point.
 - Resolve real Home Assistant entities instead of inventing ids.
 - Show a readable draft before YAML.
 - Ask for clarification when the bridge is unsure.
 - Keep the write path explicit and conservative.
+
+## Who This Is For
+
+- Home Assistant users who already use automations.
+- Self-hosters running HA on Docker, NAS, mini PC, Proxmox, or a similar host.
+- People who want a safer way to draft rules from plain language before editing YAML.
+- Households where simple alerts became noisy and need more context.
+
+If you mostly want a finished consumer app, this repo will feel too early. It is closer to a small tool for people who already run HA and do not mind a bit of setup.
+
+## Hardware Expectations
+
+- HA Green, Raspberry Pi, or similar small hosts: start with `rules-only`, or point the bridge at a model running somewhere else.
+- mini PC, NAS, Proxmox, or Docker host: a better fit for local model parsing.
+- Remote model endpoint: useful for development, but entity metadata may leave your local machine or LAN.
+
+You do not need a local model to try the basic flow.
 
 ## What It Does
 
@@ -101,6 +118,13 @@ This repo starts with a narrow Home Assistant + Discord wedge:
 - It does not replace Home Assistant's automation engine.
 - With the default parser, it does not send HA metadata to a model endpoint.
 - If you configure a remote OpenAI-compatible provider, selected entity metadata is sent to that endpoint.
+
+## Current Limits
+
+- The rule parser handles a small set of common household patterns today.
+- Real package, pet, or camera understanding must come from your existing HA entities.
+- `disable rule` and `delete rule` currently update bridge-managed state; package-file rewriting is still limited.
+- Model quality depends on the local endpoint and hardware you choose.
 
 ## Discord Setup
 
@@ -168,7 +192,7 @@ home-rule-bridge run
 
 Every draft goes through:
 
-1. Schema validation.
+1. Schema checks.
 2. Entity resolution against the current HA snapshot.
 3. Service allowlist.
 4. Human confirmation.
@@ -200,26 +224,45 @@ For an optional local audit trail:
 BRIDGE_AUDIT_LOG=audit/home_event_rule_bridge.jsonl
 ```
 
-## Local NSP / Local Model Path
+## NSP Profiles
 
-The default parser is `rules`, a small local parser for the first test scenarios.
+Use `NSP_PROFILE` to choose how the bridge parses plain language:
 
-For local LLM parsing, run an OpenAI-compatible endpoint such as llama.cpp or Ollama and set:
+- `rules-only`: no model, minimal setup.
+- `fast`: small local model, mapped to `qwen3:0.6b`.
+- `balanced`: better local parsing on stronger hardware, mapped to `qwen3:1.7b`.
+- `remote-dev`: OpenAI-compatible endpoint for development. Entity metadata may leave this machine or LAN.
 
 ```text
-NSP_PROVIDER=openai-compatible
+NSP_PROFILE=rules-only
+```
+
+For `fast`, `balanced`, or `remote-dev`, run an OpenAI-compatible endpoint such as llama.cpp or Ollama:
+
+```text
+NSP_PROFILE=balanced
 OPENAI_COMPAT_BASE_URL=http://localhost:11434/v1
 OPENAI_COMPAT_API_KEY=local
-OPENAI_COMPAT_MODEL=qwen3:1.7b
 ```
 
 For privacy-sensitive homes, keep this endpoint on the same LAN machine.
 
-Recommended direction:
+Developer override:
 
-- Primary local NSP: Qwen3-1.7B.
-- Low-memory fallback: Qwen3-0.6B.
-- Larger LLMs should repair or explain, not directly control Home Assistant.
+```text
+NSP_PROVIDER=openai-compatible
+OPENAI_COMPAT_MODEL=qwen3:1.7b
+```
+
+When `NSP_PROFILE` is set, the profile decides the provider and default model.
+
+## Open Questions
+
+- Would this fit how you manage HA automations?
+- What hardware do you run Home Assistant on?
+- Would you run a small local model, or prefer `rules-only`?
+- Which alerts became noise in your home?
+
 
 ## Test
 
@@ -227,6 +270,7 @@ Recommended direction:
 python -m pytest -q
 python -m compileall -q src tests
 home-rule-bridge demo "Let me know if a mystery device goes offline" --states fixtures\ha_states.json
+home-rule-bridge eval --states fixtures\ha_states.json
 ```
 
 ## Roadmap

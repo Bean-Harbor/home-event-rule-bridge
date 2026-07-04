@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from .audit import AuditLogger
 from .approval import ApprovalStore
 from .bridge import RuleBridge
+from .compiler import validate_draft
 from .config import Settings
 from .ha import EntitySnapshot, HomeAssistantClient
 from .nsp import build_parser
@@ -49,13 +51,18 @@ def cmd_demo(args) -> int:
 
 def cmd_doctor(args) -> int:
     settings = Settings.from_env()
+    local_model_endpoint = settings.uses_model and settings.openai_base_url.startswith(("http://localhost", "http://127.0.0.1"))
     checks = {
         "telegram_token": bool(settings.telegram_bot_token),
         "discord_token": bool(settings.discord_bot_token),
         "discord_allowed_channel_count": len(settings.discord_allowed_channel_ids),
         "ha_url": bool(settings.ha_url),
         "ha_token": bool(settings.ha_token),
+        "nsp_profile": settings.nsp_profile,
         "nsp_provider": settings.nsp_provider,
+        "nsp_model": settings.openai_model or "none",
+        "nsp_base_url": settings.openai_base_url if settings.uses_model else "not used",
+        "local_model_endpoint": local_model_endpoint,
         "write_mode": settings.allow_write_automations,
         "ha_config_dir": str(settings.ha_config_dir) if settings.ha_config_dir else None,
         "audit_log_path": str(settings.audit_log_path) if settings.audit_log_path else None,
@@ -66,6 +73,60 @@ def cmd_doctor(args) -> int:
         count = len(HomeAssistantClient(settings.ha_url, settings.ha_token).states().states)
         print(f"ha_state_count: {count}")
     return 0
+
+
+def cmd_eval(args) -> int:
+    settings = Settings.from_env()
+    snapshot = _load_snapshot(args, settings)
+    parser = build_parser(settings)
+    prompts = _load_prompts(Path(args.prompts))
+    if not prompts:
+        raise SystemExit(f"No prompts found in {args.prompts}")
+
+    ready = 0
+    clarify = 0
+    blocked = 0
+    invalid_entity = 0
+
+    print(f"profile: {settings.nsp_profile}")
+    print(f"parser: {parser.display_name}")
+    print(f"prompts: {len(prompts)}")
+    print()
+
+    for index, prompt in enumerate(prompts, start=1):
+        started = time.perf_counter()
+        draft = parser.parse(prompt, snapshot)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        result = validate_draft(draft, snapshot)
+        visible_errors = [item for item in result.errors if "None" not in item]
+        has_unknown_entity = any("unknown" in item for item in visible_errors)
+        invalid_entity += int(has_unknown_entity)
+        if result.ok and not draft.missing_slots and draft.confidence >= 0.60:
+            status = "ready"
+            ready += 1
+        elif draft.missing_slots or draft.confidence < 0.60:
+            status = "clarify"
+            clarify += 1
+        else:
+            status = "blocked"
+            blocked += 1
+        print(f"{index}. {status} confidence={draft.confidence:.2f} latency_ms={elapsed_ms}")
+        print(f"   {prompt}")
+        print(f"   {draft.explanation}")
+        if visible_errors:
+            print(f"   errors: {'; '.join(visible_errors)}")
+
+    print()
+    print(f"summary: ready={ready} clarify={clarify} blocked={blocked} invalid_entity={invalid_entity}")
+    return 0
+
+
+def _load_prompts(path: Path) -> list[str]:
+    return [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
 
 
 def cmd_run(args) -> int:
@@ -126,6 +187,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     doctor = sub.add_parser("doctor", help="Check local configuration.")
     doctor.set_defaults(func=cmd_doctor)
+
+    eval_parser = sub.add_parser("eval", help="Run fixed rule prompts against the configured parser.")
+    eval_parser.add_argument("--states", help="Path to a Home Assistant states JSON fixture.")
+    eval_parser.add_argument("--prompts", default="examples/eval-prompts.txt", help="Path to a prompt list.")
+    eval_parser.set_defaults(func=cmd_eval)
     return parser
 
 
