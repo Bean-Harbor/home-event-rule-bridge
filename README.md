@@ -16,7 +16,47 @@ show yaml / edit / cancel / confirm
 
 The bridge reads your Home Assistant entity list, drafts an automation from a chat message, and waits for explicit approval. Dry-run mode is the default.
 
-## Quick Demo
+## Discord Docker Quick Start
+
+Docker Compose is the easiest way to try the Discord bridge on a NAS, mini PC, or a machine near your Home Assistant instance.
+
+```powershell
+cp examples/.env.example .env
+```
+
+Edit `.env` and set:
+
+```text
+DISCORD_BOT_TOKEN=...
+DISCORD_ALLOWED_CHANNEL_IDS=...
+HA_URL=http://homeassistant.local:8123
+HA_TOKEN=...
+ALLOW_WRITE_AUTOMATIONS=false
+```
+
+Check the setup without starting the bot:
+
+```powershell
+docker compose run --rm bridge doctor --mode discord
+```
+
+Start the Discord bridge:
+
+```powershell
+docker compose up --build
+```
+
+In Discord, try:
+
+```text
+devices
+find harbordock
+Let me know if the HarborDock test switch goes offline
+```
+
+Dry-run is the default. With `ALLOW_WRITE_AUTOMATIONS=false`, the bridge does not write Home Assistant files.
+
+## Python Quick Demo
 
 ```powershell
 python -m venv .venv
@@ -30,10 +70,12 @@ Expected shape:
 
 ```text
 Draft ready.
-Rule: Notify on driveway or garage motion with optional occupancy context.
-Trigger: binary_sensor.driveway_motion -> on
-Conditions: group.family == not_home
-Actions: persistent_notification.create (Driveway motion)
+Meaning: Notify on driveway motion with optional occupancy context.
+When: binary_sensor.driveway_motion -> on
+If: group.family == not_home
+Do: persistent_notification.create (Driveway motion)
+Matched: binary_sensor.driveway_motion (Driveway motion), group.family (Family)
+Safety: dry-run until confirmed
 
 Reply with `confirm`, `edit <clearer rule>`, `cancel`, or `show yaml`.
 ```
@@ -48,10 +90,13 @@ Let me know if the HarborDock test switch goes offline
 
 bot:
 Draft ready.
-Rule: Notify when a selected device becomes unavailable.
-Trigger: switch.harbordock_test_switch -> unavailable
-Actions: persistent_notification.create (Device offline)
-Confidence: 0.72
+Meaning: Notify when a selected device becomes unavailable.
+When: switch.harbordock_test_switch -> unavailable
+If: none
+Do: persistent_notification.create (Device offline)
+Matched: switch.harbordock_test_switch (HarborDock Test Switch)
+Safety: dry-run until confirmed
+Confidence: 0.76
 
 Reply with `confirm`, `edit <clearer rule>`, `cancel`, or `show yaml`.
 
@@ -158,6 +203,8 @@ If `DISCORD_ALLOWED_CHANNEL_IDS` is set, the bot listens in those channels. If i
 ```text
 help
 status
+devices
+find <text>
 show yaml
 show yaml <draft_id_or_rule_id>
 confirm

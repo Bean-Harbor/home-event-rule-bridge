@@ -68,6 +68,30 @@ class PublicSurfaceTests(unittest.TestCase):
         reply = bridge.handle_text("chat", "help", EntitySnapshot.empty())
         self.assert_public_text("bot help", reply.text)
 
+    def test_doctor_does_not_print_secret_values(self) -> None:
+        old_env = dict(os.environ)
+        old_cwd = Path.cwd()
+        try:
+            for key in list(os.environ):
+                if key.startswith(("NSP_", "OPENAI_COMPAT_", "HA_", "DISCORD_", "TELEGRAM_", "ALLOW_WRITE_", "BRIDGE_")):
+                    os.environ.pop(key, None)
+            os.environ["DISCORD_BOT_TOKEN"] = "super-secret-discord-token"
+            with tempfile.TemporaryDirectory() as temp:
+                try:
+                    os.chdir(temp)
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        cmd_doctor(type("Args", (), {"mode": "discord"})())
+                finally:
+                    os.chdir(old_cwd)
+            text = output.getvalue()
+            self.assertIn("discord_token: configured", text)
+            self.assertIn("ready: no", text)
+            self.assertNotIn("super-secret-discord-token", text)
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
+
 
 if __name__ == "__main__":
     unittest.main()

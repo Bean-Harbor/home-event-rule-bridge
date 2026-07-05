@@ -51,27 +51,85 @@ def cmd_demo(args) -> int:
 def cmd_doctor(args) -> int:
     settings = Settings.from_env()
     local_model_endpoint = settings.uses_model and settings.openai_base_url.startswith(("http://localhost", "http://127.0.0.1"))
-    checks = {
-        "telegram_token": bool(settings.telegram_bot_token),
-        "discord_token": bool(settings.discord_bot_token),
+    ha_state_count: int | None = None
+    ha_error: str | None = None
+    if settings.ha_url and settings.ha_token:
+        try:
+            ha_state_count = len(HomeAssistantClient(settings.ha_url, settings.ha_token).states().states)
+        except Exception as exc:
+            ha_error = str(exc)
+
+    mode = getattr(args, "mode", "all")
+    checks = _doctor_checks(settings, local_model_endpoint, ha_state_count, ha_error)
+    for key, value in checks.items():
+        print(f"{key}: {value}")
+    ready, next_steps = _doctor_readiness(mode, settings, ha_state_count, ha_error)
+    print(f"ready: {'yes' if ready else 'no'}")
+    if next_steps:
+        print("next_steps:")
+        for step in next_steps[:3]:
+            print(f"- {step}")
+    return 0
+
+
+def _doctor_checks(
+    settings: Settings,
+    local_model_endpoint: bool,
+    ha_state_count: int | None,
+    ha_error: str | None,
+) -> dict[str, object]:
+    return {
+        "telegram_token": _configured(settings.telegram_bot_token),
+        "discord_token": _configured(settings.discord_bot_token),
         "discord_allowed_channel_count": len(settings.discord_allowed_channel_ids),
-        "ha_url": bool(settings.ha_url),
-        "ha_token": bool(settings.ha_token),
+        "ha_url": _configured(settings.ha_url),
+        "ha_token": _configured(settings.ha_token),
+        "ha_state_count": ha_state_count if ha_state_count is not None else "not checked",
+        "ha_error": _trim_error(ha_error) if ha_error else "none",
         "nsp_profile": settings.nsp_profile,
         "nsp_provider": settings.nsp_provider,
         "nsp_model": settings.openai_model or "none",
         "nsp_base_url": settings.openai_base_url if settings.uses_model else "not used",
         "local_model_endpoint": local_model_endpoint,
         "write_mode": settings.allow_write_automations,
-        "ha_config_dir": str(settings.ha_config_dir) if settings.ha_config_dir else None,
-        "audit_log_path": str(settings.audit_log_path) if settings.audit_log_path else None,
+        "ha_config_dir": str(settings.ha_config_dir) if settings.ha_config_dir else "not configured",
+        "audit_log_path": str(settings.audit_log_path) if settings.audit_log_path else "not configured",
     }
-    for key, value in checks.items():
-        print(f"{key}: {value}")
-    if settings.ha_url and settings.ha_token:
-        count = len(HomeAssistantClient(settings.ha_url, settings.ha_token).states().states)
-        print(f"ha_state_count: {count}")
-    return 0
+
+
+def _doctor_readiness(
+    mode: str,
+    settings: Settings,
+    ha_state_count: int | None,
+    ha_error: str | None,
+) -> tuple[bool, list[str]]:
+    blockers: list[str] = []
+    suggestions: list[str] = []
+    if mode in {"discord", "all"} and not settings.discord_bot_token:
+        blockers.append("Set DISCORD_BOT_TOKEN in .env.")
+    if mode == "telegram" and not settings.telegram_bot_token:
+        blockers.append("Set TELEGRAM_BOT_TOKEN in .env.")
+    if not settings.ha_url:
+        blockers.append("Set HA_URL to your Home Assistant URL.")
+    if not settings.ha_token:
+        blockers.append("Set HA_TOKEN to a Home Assistant long-lived access token.")
+    if settings.ha_url and settings.ha_token and ha_error:
+        blockers.append("Fix Home Assistant connectivity or token permissions.")
+    if mode == "discord" and settings.discord_bot_token and not settings.discord_allowed_channel_ids:
+        suggestions.append("Optional: set DISCORD_ALLOWED_CHANNEL_IDS to keep the bot scoped to a test channel.")
+    ready = not blockers and ha_state_count is not None
+    return ready, blockers + suggestions
+
+
+def _configured(value: str | None) -> str:
+    return "configured" if value else "missing"
+
+
+def _trim_error(error: str | None, limit: int = 120) -> str:
+    if not error:
+        return ""
+    single_line = " ".join(str(error).split())
+    return single_line if len(single_line) <= limit else single_line[: limit - 3] + "..."
 
 
 def cmd_eval(args) -> int:
@@ -203,6 +261,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     run_discord.set_defaults(func=cmd_run_discord)
 
     doctor = sub.add_parser("doctor", help="Check local configuration.")
+    doctor.add_argument("--mode", choices=["all", "discord", "telegram"], default="all", help="Readiness mode to check.")
     doctor.set_defaults(func=cmd_doctor)
 
     eval_parser = sub.add_parser("eval", help="Run fixed rule prompts against the configured parser.")
