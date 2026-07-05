@@ -20,6 +20,8 @@ The bridge reads your Home Assistant entity list, drafts an automation from a ch
 
 Docker Compose is the easiest way to try the Discord bridge on a NAS, mini PC, or a machine near your Home Assistant instance.
 
+If you are helping test the Discord path, start with the [private tester guide](docs/private-tester-guide.md).
+
 ```powershell
 cp examples/.env.example .env
 ```
@@ -62,6 +64,8 @@ devices
 find harbordock
 Let me know if the HarborDock test switch goes offline
 ```
+
+The full first-run smoke list is in `examples/smoke-prompts.txt`.
 
 Dry-run is the default. With `ALLOW_WRITE_AUTOMATIONS=false`, the bridge does not write Home Assistant files.
 
@@ -159,6 +163,15 @@ bot:
 Confirmed draft_xxxxx.
 Dry-run mode: no Home Assistant files were changed.
 ```
+
+For a local dry smoke with fixture data:
+
+```powershell
+home-rule-bridge eval --states fixtures\ha_states.json --prompts examples\smoke-prompts.txt
+home-rule-bridge eval --states fixtures\ha_states_harbordock_lab.json --prompts examples\smoke-prompts.txt
+```
+
+One private Discord dogfood run is recorded in `docs/smoke/2026-07-05-discord-dogfood.md`.
 
 ## Why This Exists
 
@@ -364,6 +377,7 @@ python -m pytest -q
 python -m compileall -q src tests
 home-rule-bridge demo "Let me know if a mystery device goes offline" --states fixtures\ha_states.json
 home-rule-bridge eval --states fixtures\ha_states.json
+home-rule-bridge eval --states fixtures\ha_states.json --prompts examples\smoke-prompts.txt
 ```
 
 ## Roadmap

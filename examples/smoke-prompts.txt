@@ -1,0 +1,9 @@
+# One smoke message per line.
+# These are meant for a first Discord run against a real Home Assistant snapshot.
+
+devices
+find camera
+Tell me if the front door camera goes offline
+Turn on the hallway light when someone arrives home
+Run the evening scene when I say movie time
+cancel

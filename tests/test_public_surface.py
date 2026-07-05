@@ -35,11 +35,14 @@ class PublicSurfaceTests(unittest.TestCase):
                 self.assertIsNone(re.search(pattern, text, flags=re.IGNORECASE))
 
     def test_public_files_do_not_use_internal_terms(self) -> None:
-        for path in [
+        paths = [
             ROOT / "README.md",
             ROOT / "examples" / ".env.example",
             ROOT / "pyproject.toml",
-        ]:
+        ]
+        paths.extend(sorted((ROOT / "docs").rglob("*.md")))
+        paths.extend(sorted((ROOT / "examples").glob("*.txt")))
+        for path in paths:
             self.assert_public_text(str(path), path.read_text(encoding="utf-8"))
 
     def test_cli_help_doctor_and_bot_status_do_not_use_internal_terms(self) -> None:

@@ -268,11 +268,17 @@ class RuleBridge:
         return (
             "Home Event Rule Bridge drafts Home Assistant rules from normal chat.\n"
             f"{self._status_text(snapshot)}\n\n"
-            "Try:\n"
+            "First run:\n"
+            "1. `devices` - see what Home Assistant entities I can read.\n"
+            "2. `find <thing>` - narrow the list, for example `find camera`.\n"
+            "3. Describe one rule in a sentence.\n"
+            "4. Use `show yaml` if you want the automation preview.\n"
+            "5. Use `confirm` / `ok`, `edit <clearer rule>`, or `cancel`.\n\n"
+            "Example rules:\n"
             "- Let me know if the HarborDock test switch goes offline\n"
             "- If a package is no longer visible on the porch, message me\n"
             "- When driveway motion happens while nobody is home, notify me\n\n"
-            "Commands: `devices`, `find <text>`, `status`, `show yaml`, `confirm`, `cancel`, `list rules`, `show rule <id>`."
+            "Other commands: `status`, `list rules`, `show rule <id>`."
         )
 
     def _status_text(self, snapshot: EntitySnapshot) -> str:
