@@ -151,7 +151,8 @@ def cmd_eval(args) -> int:
         raise SystemExit(f"No prompts found in {args.prompts}")
 
     ready = 0
-    clarify = 0
+    clarify_with_candidates = 0
+    clarify_no_candidates = 0
     blocked = 0
     info = 0
     invalid_entity = 0
@@ -177,8 +178,12 @@ def cmd_eval(args) -> int:
                 status = "ready"
                 ready += 1
             elif draft.missing_slots or draft.confidence < 0.60:
-                status = "clarify"
-                clarify += 1
+                if pending.suggestions:
+                    status = "clarify_with_candidates"
+                    clarify_with_candidates += 1
+                else:
+                    status = "clarify_no_candidates"
+                    clarify_no_candidates += 1
             else:
                 status = "blocked"
                 blocked += 1
@@ -195,7 +200,13 @@ def cmd_eval(args) -> int:
             print(f"   errors: {'; '.join(visible_errors)}")
 
     print()
-    print(f"summary: ready={ready} clarify={clarify} info={info} blocked={blocked} invalid_entity={invalid_entity}")
+    print(
+        "summary: "
+        f"ready={ready} "
+        f"clarify_with_candidates={clarify_with_candidates} "
+        f"clarify_no_candidates={clarify_no_candidates} "
+        f"info={info} blocked={blocked} invalid_entity={invalid_entity}"
+    )
     return 0
 
 

@@ -1,0 +1,117 @@
+[
+  {
+    "entity_id": "light.harbordock_test_light",
+    "state": "on",
+    "attributes": { "friendly_name": "HarborDock Test Light" }
+  },
+  {
+    "entity_id": "switch.harbordock_test_switch",
+    "state": "on",
+    "attributes": { "friendly_name": "HarborDock Test Switch" }
+  },
+  {
+    "entity_id": "scene.harbordock_test_off",
+    "state": "2026-05-09T00:32:29.607446+00:00",
+    "attributes": { "friendly_name": "HarborDock Test Off" }
+  },
+  {
+    "entity_id": "scene.harbordock_test_on",
+    "state": "2026-06-03T12:11:21.871362+00:00",
+    "attributes": { "friendly_name": "HarborDock Test On" }
+  },
+  {
+    "entity_id": "person.harbordock_lab",
+    "state": "unknown",
+    "attributes": { "friendly_name": "HarborDock Lab" }
+  },
+  {
+    "entity_id": "sensor.backup_backup_manager_state",
+    "state": "idle",
+    "attributes": { "friendly_name": "Backup Backup Manager state" }
+  },
+  {
+    "entity_id": "sensor.backup_last_attempted_automatic_backup",
+    "state": "2026-07-05T01:00:00+00:00",
+    "attributes": { "friendly_name": "Backup Last attempted automatic backup" }
+  },
+  {
+    "entity_id": "sensor.backup_last_successful_automatic_backup",
+    "state": "2026-07-05T01:04:00+00:00",
+    "attributes": { "friendly_name": "Backup Last successful automatic backup" }
+  },
+  {
+    "entity_id": "sensor.backup_next_scheduled_automatic_backup",
+    "state": "2026-07-06T01:00:00+00:00",
+    "attributes": { "friendly_name": "Backup Next scheduled automatic backup" }
+  },
+  {
+    "entity_id": "sensor.sun_next_dawn",
+    "state": "2026-07-06T10:12:00+00:00",
+    "attributes": { "friendly_name": "Sun Next dawn" }
+  },
+  {
+    "entity_id": "sensor.sun_next_dusk",
+    "state": "2026-07-06T02:33:00+00:00",
+    "attributes": { "friendly_name": "Sun Next dusk" }
+  },
+  {
+    "entity_id": "sensor.sun_next_noon",
+    "state": "2026-07-05T19:02:00+00:00",
+    "attributes": { "friendly_name": "Sun Next noon" }
+  },
+  {
+    "entity_id": "sensor.sun_next_midnight",
+    "state": "2026-07-06T07:02:00+00:00",
+    "attributes": { "friendly_name": "Sun Next midnight" }
+  },
+  {
+    "entity_id": "sensor.sun_next_rising",
+    "state": "2026-07-06T10:42:00+00:00",
+    "attributes": { "friendly_name": "Sun Next rising" }
+  },
+  {
+    "entity_id": "sensor.sun_next_setting",
+    "state": "2026-07-06T02:03:00+00:00",
+    "attributes": { "friendly_name": "Sun Next setting" }
+  },
+  {
+    "entity_id": "conversation.home_assistant",
+    "state": "unknown",
+    "attributes": { "friendly_name": "Home Assistant" }
+  },
+  {
+    "entity_id": "event.backup_automatic_backup",
+    "state": "2026-07-05T01:04:00+00:00",
+    "attributes": { "friendly_name": "Backup Automatic backup" }
+  },
+  {
+    "entity_id": "input_boolean.harbordock_test_power",
+    "state": "on",
+    "attributes": { "friendly_name": "HarborDock Test Power" }
+  },
+  {
+    "entity_id": "sun.sun",
+    "state": "above_horizon",
+    "attributes": { "friendly_name": "Sun" }
+  },
+  {
+    "entity_id": "todo.shopping_list",
+    "state": "0",
+    "attributes": { "friendly_name": "Shopping List" }
+  },
+  {
+    "entity_id": "tts.google_translate_en_com",
+    "state": "unknown",
+    "attributes": { "friendly_name": "Google Translate en com" }
+  },
+  {
+    "entity_id": "weather.forecast_harbordock_lab",
+    "state": "rainy",
+    "attributes": { "friendly_name": "Forecast HarborDock Lab" }
+  },
+  {
+    "entity_id": "zone.home",
+    "state": "0",
+    "attributes": { "friendly_name": "HarborDock Lab" }
+  }
+]

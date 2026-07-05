@@ -21,6 +21,10 @@ def fixture_snapshot() -> EntitySnapshot:
     return EntitySnapshot.from_file(ROOT / "fixtures" / "ha_states.json")
 
 
+def harbordock_lab_snapshot() -> EntitySnapshot:
+    return EntitySnapshot.from_file(ROOT / "fixtures" / "ha_states_harbordock_lab.json")
+
+
 class RuleBridgeTests(unittest.TestCase):
     def test_package_rule_generates_confirmable_yaml(self) -> None:
         snapshot = fixture_snapshot()
@@ -38,6 +42,14 @@ class RuleBridgeTests(unittest.TestCase):
         result = validate_draft(draft, snapshot)
         self.assertTrue(result.ok)
         self.assertEqual(draft.trigger.entity_id, "switch.harbordock_test_switch")
+        self.assertEqual(draft.trigger.to_state, "unavailable")
+
+    def test_front_door_camera_offline_matches_exact_camera(self) -> None:
+        snapshot = fixture_snapshot()
+        draft = RuleBasedParser().parse("Tell me if the front door camera goes offline", snapshot)
+        result = validate_draft(draft, snapshot)
+        self.assertTrue(result.ok)
+        self.assertEqual(draft.trigger.entity_id, "camera.front_door")
         self.assertEqual(draft.trigger.to_state, "unavailable")
 
     def test_driveway_rule_uses_nobody_home_condition(self) -> None:
@@ -213,6 +225,11 @@ class RuleBridgeTests(unittest.TestCase):
         self.assertEqual(scene.actions[0].service, "scene.turn_on")
         self.assertEqual(scene.actions[0].target, {"entity_id": "scene.evening"})
 
+        script = parser.parse("Run the movie time script when I say movie time", snapshot)
+        self.assertTrue(validate_draft(script, snapshot).ok)
+        self.assertEqual(script.actions[0].service, "script.turn_on")
+        self.assertEqual(script.actions[0].target, {"entity_id": "script.movie_time"})
+
     def test_specific_room_name_does_not_match_only_generic_light(self) -> None:
         snapshot = EntitySnapshot.from_api_states(
             [
@@ -235,7 +252,7 @@ class RuleBridgeTests(unittest.TestCase):
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
         reply = bridge.handle_text("chat-1", "Turn on the hallway light when someone arrives home", snapshot)
         self.assertIn("I could not find an exact match for `hallway light`", reply.text)
-        self.assertIn("1. light.harbordock_test_light", reply.text)
+        self.assertIn("1. light.harbordock_test_light (HarborDock Test Light) [off]", reply.text)
 
     def test_missing_camera_does_not_suggest_unrelated_entities(self) -> None:
         snapshot = EntitySnapshot.from_api_states(
@@ -260,9 +277,24 @@ class RuleBridgeTests(unittest.TestCase):
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
         reply = bridge.handle_text("chat-1", "Tell me if the front door camera goes offline", snapshot)
         self.assertIn("Which device should I watch?", reply.text)
+        self.assertIn("I do not see a front door camera in this Home Assistant snapshot.", reply.text)
+        self.assertIn("find camera", reply.text)
         self.assertNotIn("scene.harbordock_test_on", reply.text)
         self.assertNotIn("person.harbordock_lab", reply.text)
         self.assertNotIn("sensor.sun_next_dawn", reply.text)
+
+    def test_harbordock_lab_limited_fixture_is_clear_about_missing_devices(self) -> None:
+        snapshot = harbordock_lab_snapshot()
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+
+        camera = bridge.handle_text("chat-1", "Tell me if the front door camera goes offline", snapshot)
+        self.assertIn("I do not see a front door camera in this Home Assistant snapshot.", camera.text)
+        self.assertNotIn("scene.harbordock_test_on", camera.text)
+        self.assertNotIn("person.harbordock_lab", camera.text)
+
+        hallway = bridge.handle_text("chat-1", "Turn on the hallway light when someone arrives home", snapshot)
+        self.assertIn("I could not find an exact match for `hallway light`", hallway.text)
+        self.assertIn("1. light.harbordock_test_light (HarborDock Test Light) [on]", hallway.text)
 
     def test_list_and_show_confirmed_rules(self) -> None:
         snapshot = fixture_snapshot()

@@ -121,7 +121,7 @@ class RuleBridge:
         )
 
         if self._needs_clarification(draft, validation_ok=validation.ok):
-            return BridgeReply(self._clarification_card(draft, suggestions), draft.id, yaml_preview)
+            return BridgeReply(self._clarification_card(draft, suggestions, snapshot), draft.id, yaml_preview)
         return BridgeReply(self._draft_card(draft, validation.errors, validation.warnings), draft.id, yaml_preview)
 
     def _try_clarification_reply(
@@ -133,12 +133,19 @@ class RuleBridge:
         pending = self.approvals.latest_for_chat(chat_id)
         if not pending or not self._needs_clarification(pending.draft, validation_ok=pending.validation.ok):
             return None
+        if self._looks_like_new_rule_request(text):
+            return None
 
         entity_id = self._resolve_clarification_entity(text, pending, snapshot)
         if not entity_id:
             return None
         self.approvals.cancel(pending.draft.id, chat_id)
         return self._create_draft(chat_id, f"{pending.draft.user_text} {entity_id}", snapshot)
+
+    def _looks_like_new_rule_request(self, text: str) -> bool:
+        lower = text.strip().lower()
+        starters = ("if ", "when ", "let me know", "tell me", "notify me", "turn on", "turn off", "run ")
+        return lower.startswith(starters) or " when " in lower or " if " in lower
 
     def _resolve_clarification_entity(self, text: str, pending: PendingDraft, snapshot: EntitySnapshot) -> str | None:
         cleaned = text.strip()
@@ -276,7 +283,12 @@ class RuleBridge:
     def _needs_clarification(self, draft: RuleDraft, validation_ok: bool) -> bool:
         return bool(draft.missing_slots) or draft.confidence < self.CLARIFICATION_THRESHOLD or not validation_ok
 
-    def _clarification_card(self, draft: RuleDraft, suggestions: list[str]) -> str:
+    def _clarification_card(
+        self,
+        draft: RuleDraft,
+        suggestions: list[str],
+        snapshot: EntitySnapshot | None = None,
+    ) -> str:
         lines = [
             self._clarification_question(draft),
             f"Draft: {draft.id}",
@@ -285,16 +297,21 @@ class RuleBridge:
         ]
         if draft.missing_slots:
             lines.append("Missing: " + ", ".join(draft.missing_slots))
+        note = self._clarification_note(draft, has_suggestions=bool(suggestions))
+        if note:
+            lines.append(note)
         if suggestions:
-            note = self._clarification_note(draft)
-            if note:
-                lines.append(note)
             lines.append("\nCandidates:")
             for index, entity_id in enumerate(suggestions, start=1):
-                lines.append(f"{index}. {entity_id}")
+                lines.append(f"{index}. {self._format_suggestion(entity_id, snapshot)}")
             lines.append("\nReply with a number, an entity id, `edit <clearer rule>`, or `cancel`.")
         else:
-            lines.append("\nReply with a clearer rule sentence, `edit <clearer rule>`, or `cancel`.")
+            find_hint = self._clarification_find_hint(draft)
+            lines.append(
+                f"\nTry `devices` to see the snapshot, `find {find_hint}` to search, "
+                "or `edit <clearer rule>`."
+            )
+            lines.append("You can also reply `cancel`.")
         return "\n".join(lines)
 
     def _draft_card(self, draft: RuleDraft, errors: list[str], warnings: list[str]) -> str:
@@ -441,18 +458,46 @@ class RuleBridge:
             return "Should this always run, or only when nobody is home / after sunset?"
         return "Which device should I watch?"
 
-    def _clarification_note(self, draft: RuleDraft) -> str | None:
+    def _clarification_note(self, draft: RuleDraft, has_suggestions: bool) -> str | None:
         missing = " ".join(draft.missing_slots).lower()
         lower_text = draft.user_text.lower()
         if "action target" in missing:
             requested = self._requested_device_phrase(lower_text, ["light", "switch"])
             if requested:
-                return f"I could not find an exact match for `{requested}`. I found this controllable candidate:"
+                if has_suggestions:
+                    return f"I could not find an exact match for `{requested}`. I found this controllable candidate:"
+                return f"I do not see a {requested} in this Home Assistant snapshot."
         if "scene" in missing or "script" in missing:
             requested = self._requested_device_phrase(lower_text, ["scene", "script"])
             if requested:
-                return f"I could not find an exact match for `{requested}`. I found these scene/script candidates:"
+                if has_suggestions:
+                    return f"I could not find an exact match for `{requested}`. I found these scene/script candidates:"
+                return f"I do not see a {requested} in this Home Assistant snapshot."
+        if "device entity" in missing or "device" in missing:
+            requested = self._requested_device_phrase(lower_text, ["camera", "light", "switch", "sensor", "device"])
+            if requested:
+                if has_suggestions:
+                    return f"I could not find an exact match for `{requested}`. I found this possible match:"
+                return f"I do not see a {requested} in this Home Assistant snapshot."
         return None
+
+    def _clarification_find_hint(self, draft: RuleDraft) -> str:
+        missing = " ".join(draft.missing_slots).lower()
+        lower_text = draft.user_text.lower()
+        for domain in ["camera", "light", "switch", "scene", "script", "sensor"]:
+            if domain in missing or domain in lower_text:
+                return domain
+        if "person" in missing or "tracker" in missing:
+            return "person"
+        return "device"
+
+    def _format_suggestion(self, entity_id: str, snapshot: EntitySnapshot | None) -> str:
+        if not snapshot:
+            return entity_id
+        state = snapshot.by_id.get(entity_id)
+        if not state:
+            return entity_id
+        return f"{self._format_entity(state.entity_id, state.friendly_name)} [{state.state}]"
 
     def _requested_device_phrase(self, lower_text: str, nouns: list[str]) -> str | None:
         words = [word.strip(".,!?;:()[]{}\"'`") for word in lower_text.split()]
