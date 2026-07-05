@@ -110,6 +110,41 @@ class RuleBridgeTests(unittest.TestCase):
         find_harbordock = bridge.handle_text("chat-1", "Find devices related to HarborDock", snapshot)
         self.assertIn("light.harbordock_test_light", find_harbordock.text)
 
+    def test_find_prioritizes_actionable_entities(self) -> None:
+        snapshot = EntitySnapshot.from_api_states(
+            [
+                {
+                    "entity_id": "weather.forecast_harbordock_lab",
+                    "state": "cloudy",
+                    "attributes": {"friendly_name": "Forecast HarborDock Lab"},
+                },
+                {
+                    "entity_id": "zone.home",
+                    "state": "0",
+                    "attributes": {"friendly_name": "HarborDock Lab"},
+                },
+                {
+                    "entity_id": "sensor.harbordock_status",
+                    "state": "ok",
+                    "attributes": {"friendly_name": "HarborDock Status"},
+                },
+                {
+                    "entity_id": "switch.harbordock_test_switch",
+                    "state": "on",
+                    "attributes": {"friendly_name": "HarborDock Test Switch"},
+                },
+                {
+                    "entity_id": "light.harbordock_test_light",
+                    "state": "off",
+                    "attributes": {"friendly_name": "HarborDock Test Light"},
+                },
+            ]
+        )
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        reply = bridge.handle_text("chat-1", "find harbordock", snapshot)
+        self.assertLess(reply.text.index("switch.harbordock_test_switch"), reply.text.index("weather.forecast_harbordock_lab"))
+        self.assertLess(reply.text.index("light.harbordock_test_light"), reply.text.index("zone.home"))
+
     def test_show_yaml_is_explicit(self) -> None:
         snapshot = fixture_snapshot()
         bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
@@ -196,6 +231,11 @@ class RuleBridgeTests(unittest.TestCase):
         draft = RuleBasedParser().parse("Turn on the hallway light when someone arrives home", snapshot)
         self.assertIn("action target", draft.missing_slots)
         self.assertNotEqual(draft.actions[0].target, {"entity_id": "light.harbordock_test_light"})
+
+        bridge = RuleBridge(RuleBasedParser(), ApprovalStore(), AutomationWriter(False, None))
+        reply = bridge.handle_text("chat-1", "Turn on the hallway light when someone arrives home", snapshot)
+        self.assertIn("I could not find an exact match for `hallway light`", reply.text)
+        self.assertIn("1. light.harbordock_test_light", reply.text)
 
     def test_missing_camera_does_not_suggest_unrelated_entities(self) -> None:
         snapshot = EntitySnapshot.from_api_states(

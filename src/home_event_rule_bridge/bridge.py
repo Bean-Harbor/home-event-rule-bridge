@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from .approval import ApprovalStore, PendingDraft
 from .audit import AuditLogger
 from .compiler import compile_automation_yaml, validate_draft
-from .ha import EntitySnapshot
+from .ha import EntitySnapshot, HomeAssistantState
 from .models import ActionSpec, ConditionSpec, EntityRef, RuleDraft, TriggerSpec
 from .nsp import Parser
 from .writer import AutomationWriter
@@ -21,6 +21,21 @@ class BridgeReply:
 class RuleBridge:
     SIMPLE_CONFIRMATIONS = {"CONFIRM", "CONFIRMED", "YES", "Y", "OK", "APPROVE", "APPROVED"}
     CLARIFICATION_THRESHOLD = 0.60
+    FIND_DOMAIN_PRIORITY = {
+        "switch": 0,
+        "light": 1,
+        "input_boolean": 2,
+        "scene": 3,
+        "script": 4,
+        "person": 5,
+        "device_tracker": 6,
+        "camera": 7,
+        "binary_sensor": 8,
+        "sensor": 9,
+        "group": 10,
+        "weather": 20,
+        "zone": 21,
+    }
 
     def __init__(
         self,
@@ -263,7 +278,7 @@ class RuleBridge:
 
     def _clarification_card(self, draft: RuleDraft, suggestions: list[str]) -> str:
         lines = [
-            self._clarification_question(draft.missing_slots),
+            self._clarification_question(draft),
             f"Draft: {draft.id}",
             f"Confidence: {draft.confidence:.2f}",
             f"Reason: {draft.explanation}",
@@ -271,6 +286,9 @@ class RuleBridge:
         if draft.missing_slots:
             lines.append("Missing: " + ", ".join(draft.missing_slots))
         if suggestions:
+            note = self._clarification_note(draft)
+            if note:
+                lines.append(note)
             lines.append("\nCandidates:")
             for index, entity_id in enumerate(suggestions, start=1):
                 lines.append(f"{index}. {entity_id}")
@@ -360,6 +378,7 @@ class RuleBridge:
         matches = snapshot.find(cleaned)
         if not matches:
             return f"I could not find anything matching `{cleaned}`. Try `devices` to see what I know."
+        matches = self._rank_find_matches(cleaned, matches)
         lines = [f"Matches for `{cleaned}`:"]
         for state in matches[:8]:
             lines.append(f"- {self._format_entity(state.entity_id, state.friendly_name)} [{state.state}]")
@@ -384,8 +403,34 @@ class RuleBridge:
     def _format_entity(self, entity_id: str, friendly_name: str | None) -> str:
         return f"{entity_id} ({friendly_name})" if friendly_name else entity_id
 
-    def _clarification_question(self, missing_slots: list[str]) -> str:
-        missing = " ".join(missing_slots).lower()
+    def _rank_find_matches(self, query: str, matches: list[HomeAssistantState]) -> list[HomeAssistantState]:
+        requested_domains = self._requested_find_domains(query)
+        indexed = list(enumerate(matches))
+        indexed.sort(key=lambda item: (self._find_domain_rank(item[1], requested_domains), item[0]))
+        return [state for _, state in indexed]
+
+    def _requested_find_domains(self, query: str) -> set[str]:
+        tokens = {token.strip().lower() for token in query.replace("_", " ").split()}
+        aliases = {
+            "switches": "switch",
+            "lights": "light",
+            "scenes": "scene",
+            "scripts": "script",
+            "cameras": "camera",
+            "sensors": "sensor",
+            "people": "person",
+            "persons": "person",
+        }
+        normalized = {aliases.get(token, token) for token in tokens}
+        return {domain for domain in self.FIND_DOMAIN_PRIORITY if domain in normalized}
+
+    def _find_domain_rank(self, state: HomeAssistantState, requested_domains: set[str]) -> int:
+        if requested_domains and state.domain in requested_domains:
+            return -1
+        return self.FIND_DOMAIN_PRIORITY.get(state.domain, 50)
+
+    def _clarification_question(self, draft: RuleDraft) -> str:
+        missing = " ".join(draft.missing_slots).lower()
         if "action" in missing and "target" not in missing:
             return "What should happen: notify you, turn something on/off, or run a scene?"
         if "action target" in missing:
@@ -395,6 +440,54 @@ class RuleBridge:
         if "condition" in missing:
             return "Should this always run, or only when nobody is home / after sunset?"
         return "Which device should I watch?"
+
+    def _clarification_note(self, draft: RuleDraft) -> str | None:
+        missing = " ".join(draft.missing_slots).lower()
+        lower_text = draft.user_text.lower()
+        if "action target" in missing:
+            requested = self._requested_device_phrase(lower_text, ["light", "switch"])
+            if requested:
+                return f"I could not find an exact match for `{requested}`. I found this controllable candidate:"
+        if "scene" in missing or "script" in missing:
+            requested = self._requested_device_phrase(lower_text, ["scene", "script"])
+            if requested:
+                return f"I could not find an exact match for `{requested}`. I found these scene/script candidates:"
+        return None
+
+    def _requested_device_phrase(self, lower_text: str, nouns: list[str]) -> str | None:
+        words = [word.strip(".,!?;:()[]{}\"'`") for word in lower_text.split()]
+        stop_words = {
+            "a",
+            "an",
+            "the",
+            "my",
+            "me",
+            "if",
+            "when",
+            "while",
+            "someone",
+            "nobody",
+            "everyone",
+            "turn",
+            "on",
+            "off",
+            "run",
+            "say",
+            "message",
+            "notify",
+            "tell",
+            "let",
+            "know",
+        }
+        for index, word in enumerate(words):
+            if word not in nouns:
+                continue
+            start = index
+            while start > 0 and words[start - 1] and words[start - 1] not in stop_words:
+                start -= 1
+            phrase = " ".join(words[start : index + 1]).strip()
+            return phrase if phrase and phrase != word else word
+        return None
 
     def _trigger_text(self, trigger: TriggerSpec) -> str:
         if trigger.kind == "state":
