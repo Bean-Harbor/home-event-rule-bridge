@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Private tester guide
+    url: https://github.com/Bean-Harbor/home-event-rule-bridge/blob/main/docs/private-tester-guide.md
+    about: Start here if you are trying the Discord path for the first time.
+  - name: Troubleshooting
+    url: https://github.com/Bean-Harbor/home-event-rule-bridge/blob/main/TROUBLESHOOTING.md
+    about: Check common Docker, Discord, and Home Assistant setup issues.

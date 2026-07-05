@@ -21,6 +21,7 @@ The bridge reads your Home Assistant entity list, drafts an automation from a ch
 Docker Compose is the easiest way to try the Discord bridge on a NAS, mini PC, or a machine near your Home Assistant instance.
 
 If you are helping test the Discord path, start with the [private tester guide](docs/private-tester-guide.md).
+If setup gets stuck, check [Troubleshooting](TROUBLESHOOTING.md).
 
 ```powershell
 cp examples/.env.example .env
@@ -171,7 +172,8 @@ home-rule-bridge eval --states fixtures\ha_states.json --prompts examples\smoke-
 home-rule-bridge eval --states fixtures\ha_states_harbordock_lab.json --prompts examples\smoke-prompts.txt
 ```
 
-One private Discord dogfood run is recorded in `docs/smoke/2026-07-05-discord-dogfood.md`.
+One private Discord dogfood run is recorded in [docs/smoke/2026-07-05-discord-dogfood.md](docs/smoke/2026-07-05-discord-dogfood.md).
+Short invite text for asking a friend to try the bridge is in [docs/private-tester-invite.md](docs/private-tester-invite.md).
 
 ## Why This Exists
 

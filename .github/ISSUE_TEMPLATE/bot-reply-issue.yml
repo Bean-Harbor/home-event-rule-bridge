@@ -1,0 +1,63 @@
+name: Bot reply issue
+description: Report a confusing, wrong, or unsafe bot reply.
+title: "[bot] "
+labels: ["bot-reply"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the bot replied, but the draft or clarification did not feel right.
+
+        Please avoid posting private tokens, channel ids, or full `.env` files.
+  - type: textarea
+    id: user_message
+    attributes:
+      label: Message sent to the bot
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: bot_reply
+    attributes:
+      label: Bot reply
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: What felt wrong?
+      options:
+        - Wrong entity match
+        - Missing entity not explained clearly
+        - Wrong trigger
+        - Wrong condition
+        - Wrong action
+        - Reply felt too confident
+        - YAML looked wrong
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: entities
+    attributes:
+      label: Relevant Home Assistant entities
+      description: Paste only the relevant entity ids and friendly names. Do not paste tokens.
+      placeholder: "light.hallway (Hallway Light), camera.front_door (Front Door Camera)"
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: profile
+    attributes:
+      label: Parser profile
+      placeholder: "rules-only, fast, balanced, remote-dev"
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed Discord tokens, HA tokens, private channel ids, and full `.env` contents.
+          required: true

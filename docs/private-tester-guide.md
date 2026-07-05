@@ -4,6 +4,8 @@ Home Event Rule Bridge lets you describe a small Home Assistant rule in Discord,
 
 This guide is for people who already run Home Assistant and are comfortable with Docker Compose, Discord Developer Portal, and long-lived HA tokens.
 
+If setup gets stuck, check [Troubleshooting](../TROUBLESHOOTING.md) first.
+
 ## What You Need
 
 - A Home Assistant instance with a long-lived access token.
@@ -123,3 +125,9 @@ Would you prefer rules-only, local model, or remote model for parsing?
 ```
 
 Do not share your Discord bot token, HA token, or private channel ids.
+
+For GitHub feedback, use:
+
+- Setup issue: Docker, Discord, or Home Assistant connection problems.
+- Bot reply issue: a confusing or wrong draft.
+- Feature idea: a workflow you want the bridge to handle later.

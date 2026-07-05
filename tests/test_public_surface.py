@@ -37,11 +37,13 @@ class PublicSurfaceTests(unittest.TestCase):
     def test_public_files_do_not_use_internal_terms(self) -> None:
         paths = [
             ROOT / "README.md",
+            ROOT / "TROUBLESHOOTING.md",
             ROOT / "examples" / ".env.example",
             ROOT / "pyproject.toml",
         ]
         paths.extend(sorted((ROOT / "docs").rglob("*.md")))
         paths.extend(sorted((ROOT / "examples").glob("*.txt")))
+        paths.extend(sorted((ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.yml")))
         for path in paths:
             self.assert_public_text(str(path), path.read_text(encoding="utf-8"))
 

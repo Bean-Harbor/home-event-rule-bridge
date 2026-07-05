@@ -1,0 +1,43 @@
+name: Feature idea
+description: Suggest a small workflow or integration improvement.
+title: "[idea] "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good feature ideas are tied to a real Home Assistant workflow.
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What workflow are you trying to improve?
+      placeholder: "I want to create rules for..."
+    validations:
+      required: true
+  - type: textarea
+    id: example_prompt
+    attributes:
+      label: Example Discord message
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: expected_reply
+    attributes:
+      label: What should the bridge draft or ask?
+      render: text
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Which part matters most?
+      options:
+        - Better entity matching
+        - Better clarification
+        - More safe actions
+        - Local model parsing
+        - Install/setup
+        - Other
+    validations:
+      required: true

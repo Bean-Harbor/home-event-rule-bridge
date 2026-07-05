@@ -1,0 +1,63 @@
+name: Setup issue
+description: Report a Docker, Discord, or Home Assistant setup problem.
+title: "[setup] "
+labels: ["setup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Home Event Rule Bridge.
+
+        Please remove tokens, private channel ids, and full `.env` contents before posting.
+  - type: dropdown
+    id: install_path
+    attributes:
+      label: Install path
+      options:
+        - Docker Compose
+        - Local Python
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: host_type
+    attributes:
+      label: Host type
+      placeholder: "mini PC, NAS, Raspberry Pi, HA Green, VM, etc."
+    validations:
+      required: true
+  - type: input
+    id: ha_install
+    attributes:
+      label: Home Assistant install type
+      placeholder: "HA OS, Docker, Supervised, Core, etc."
+    validations:
+      required: true
+  - type: textarea
+    id: doctor_output
+    attributes:
+      label: Redacted doctor output
+      description: Run `docker compose run --rm bridge doctor --mode discord` and remove secrets.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Include the command you ran and the error you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed Discord tokens, HA tokens, private channel ids, and full `.env` contents.
+          required: true
