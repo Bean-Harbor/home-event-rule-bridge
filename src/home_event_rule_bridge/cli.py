@@ -11,6 +11,7 @@ from .bridge import RuleBridge
 from .config import Settings
 from .ha import EntitySnapshot, HomeAssistantClient
 from .nsp import build_parser
+from .setup_portal import SETUP_DEFAULT_PORT, DiscordSetupPortal, SetupPortalConfig
 from .telegram import TelegramBot
 from .writer import AutomationWriter
 
@@ -81,6 +82,8 @@ def _doctor_checks(
     return {
         "telegram_token": _configured(settings.telegram_bot_token),
         "discord_token": _configured(settings.discord_bot_token),
+        "discord_application_id": _configured(settings.discord_application_id),
+        "discord_invite_url": "available" if settings.discord_application_id else "missing",
         "discord_allowed_channel_count": len(settings.discord_allowed_channel_ids),
         "ha_url": _configured(settings.ha_url),
         "ha_token": _configured(settings.ha_token),
@@ -243,6 +246,33 @@ def cmd_run_discord(args) -> int:
     return 0
 
 
+def cmd_setup_discord(args) -> int:
+    env_file = Path(args.env_file)
+    portal = DiscordSetupPortal(
+        SetupPortalConfig(
+            host=args.host,
+            port=args.port,
+            env_file=env_file,
+            public_url=args.public_url,
+        )
+    )
+    server = portal.make_server()
+    print("Discord setup portal")
+    print(f"setup_url: {portal.setup_url}")
+    print(f"qr_page_url: {portal.qr_page_url}")
+    print(f"qr_svg_url: {portal.qr_svg_url}")
+    print(f"session_code: {portal.session_code}")
+    print(f"env_file: {env_file}")
+    print("Tokens are never printed and are not included in the QR code.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        server.server_close()
+    return 0
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-rule-bridge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -263,6 +293,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="Check local configuration.")
     doctor.add_argument("--mode", choices=["all", "discord", "telegram"], default="all", help="Readiness mode to check.")
     doctor.set_defaults(func=cmd_doctor)
+
+    setup_discord = sub.add_parser("setup-discord", help="Run the one-time Discord setup portal.")
+    setup_discord.add_argument("--host", default="127.0.0.1", help="HTTP bind host for the setup portal.")
+    setup_discord.add_argument("--port", type=int, default=SETUP_DEFAULT_PORT, help="HTTP bind port for the setup portal.")
+    setup_discord.add_argument("--public-url", default=None, help="Public or LAN URL used in the printed setup URL and QR.")
+    setup_discord.add_argument("--env-file", default=".env", help="Path to the .env file to update.")
+    setup_discord.set_defaults(func=cmd_setup_discord)
 
     eval_parser = sub.add_parser("eval", help="Run fixed rule prompts against the configured parser.")
     eval_parser.add_argument("--states", help="Path to a Home Assistant states JSON fixture.")

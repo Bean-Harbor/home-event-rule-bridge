@@ -5,3 +5,21 @@ services:
       - .env
     command: run-discord
     restart: unless-stopped
+  setup:
+    build: .
+    profiles:
+      - setup
+    environment:
+      SETUP_PUBLIC_URL: ${SETUP_PUBLIC_URL:-}
+    command:
+      - setup-discord
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8788"
+      - --env-file
+      - /workspace/.env
+    ports:
+      - "8788:8788"
+    volumes:
+      - .:/workspace

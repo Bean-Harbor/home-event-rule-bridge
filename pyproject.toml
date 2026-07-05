@@ -15,6 +15,7 @@ dependencies = []
 
 [project.optional-dependencies]
 discord = ["discord.py>=2.7,<3"]
+setup = ["segno>=1.6,<2"]
 dev = ["pytest>=8"]
 
 [project.scripts]

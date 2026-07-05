@@ -76,6 +76,8 @@ class PublicSurfaceTests(unittest.TestCase):
                 if key.startswith(("NSP_", "OPENAI_COMPAT_", "HA_", "DISCORD_", "TELEGRAM_", "ALLOW_WRITE_", "BRIDGE_")):
                     os.environ.pop(key, None)
             os.environ["DISCORD_BOT_TOKEN"] = "super-secret-discord-token"
+            os.environ["DISCORD_APPLICATION_ID"] = "1234567890"
+            os.environ["DISCORD_ALLOWED_CHANNEL_IDS"] = "111,222"
             with tempfile.TemporaryDirectory() as temp:
                 try:
                     os.chdir(temp)
@@ -86,8 +88,14 @@ class PublicSurfaceTests(unittest.TestCase):
                     os.chdir(old_cwd)
             text = output.getvalue()
             self.assertIn("discord_token: configured", text)
+            self.assertIn("discord_application_id: configured", text)
+            self.assertIn("discord_invite_url: available", text)
+            self.assertIn("discord_allowed_channel_count: 2", text)
             self.assertIn("ready: no", text)
             self.assertNotIn("super-secret-discord-token", text)
+            self.assertNotIn("1234567890", text)
+            self.assertNotIn("111", text)
+            self.assertNotIn("222", text)
         finally:
             os.environ.clear()
             os.environ.update(old_env)

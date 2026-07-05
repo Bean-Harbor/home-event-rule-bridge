@@ -24,10 +24,19 @@ Docker Compose is the easiest way to try the Discord bridge on a NAS, mini PC, o
 cp examples/.env.example .env
 ```
 
-Edit `.env` and set:
+If you prefer a browser form, use the one-time setup portal:
+
+```powershell
+docker compose --profile setup up --build setup
+```
+
+Open the printed setup URL, or set `SETUP_PUBLIC_URL=http://<lan-ip>:8788` before starting the setup profile and scan the QR from a phone on the same network.
+
+Or edit `.env` manually and set:
 
 ```text
 DISCORD_BOT_TOKEN=...
+DISCORD_APPLICATION_ID=...
 DISCORD_ALLOWED_CHANNEL_IDS=...
 HA_URL=http://homeassistant.local:8123
 HA_TOKEN=...
@@ -55,6 +64,42 @@ Let me know if the HarborDock test switch goes offline
 ```
 
 Dry-run is the default. With `ALLOW_WRITE_AUTOMATIONS=false`, the bridge does not write Home Assistant files.
+
+## Discord QR Setup
+
+The QR setup flow opens a local setup page. It is not a Discord account QR login, and it does not put Discord or Home Assistant tokens inside the QR code.
+
+Run the setup portal:
+
+```powershell
+home-rule-bridge setup-discord --host 127.0.0.1 --port 8788 --env-file .env
+```
+
+For a phone on the same LAN:
+
+```powershell
+$env:SETUP_PUBLIC_URL="http://<lan-ip>:8788"
+docker compose --profile setup up --build setup
+```
+
+The page asks for:
+
+```text
+Discord Bot Token
+Discord Application ID
+Allowed Channel IDs
+HA URL
+HA Token
+```
+
+The Application ID lets the page build an `Add to Discord` link. The bot still belongs to your Discord Developer Portal account. In that portal, enable `Message Content Intent` for the bot before running the bridge.
+
+After saving setup:
+
+```powershell
+docker compose run --rm bridge doctor --mode discord
+docker compose up --build
+```
 
 ## Python Quick Demo
 
@@ -182,6 +227,7 @@ Create a Discord application and bot in the Discord Developer Portal, then:
 
 ```text
 DISCORD_BOT_TOKEN=...
+DISCORD_APPLICATION_ID=...
 DISCORD_ALLOWED_CHANNEL_IDS=
 HA_URL=http://homeassistant.local:8123
 HA_TOKEN=...

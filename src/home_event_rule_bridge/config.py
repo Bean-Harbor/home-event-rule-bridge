@@ -61,6 +61,7 @@ class Settings:
     telegram_bot_token: str | None
     telegram_allowed_chat_ids: set[str]
     discord_bot_token: str | None
+    discord_application_id: str | None
     discord_allowed_channel_ids: set[str]
     ha_url: str | None
     ha_token: str | None
@@ -100,6 +101,7 @@ class Settings:
             telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN") or None,
             telegram_allowed_chat_ids=_csv_env("TELEGRAM_ALLOWED_CHAT_IDS"),
             discord_bot_token=os.environ.get("DISCORD_BOT_TOKEN") or None,
+            discord_application_id=os.environ.get("DISCORD_APPLICATION_ID") or None,
             discord_allowed_channel_ids=_csv_env("DISCORD_ALLOWED_CHANNEL_IDS"),
             ha_url=os.environ.get("HA_URL") or None,
             ha_token=os.environ.get("HA_TOKEN") or None,
